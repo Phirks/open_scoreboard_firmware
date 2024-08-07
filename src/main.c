@@ -1062,7 +1062,7 @@ static void bt_tx_manager()
 	if (oldLeftScore != leftScore)
 	{
 		buf[0] = 0x01;
-		buf[1] = rightScore;
+		buf[1] = leftScore;
 		if (!bt_nus_send(NULL, buf, 2))
 		{
 			oldLeftScore = leftScore;

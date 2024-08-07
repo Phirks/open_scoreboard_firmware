@@ -216,4 +216,4 @@ workspace:
   'off': true
 zephyr:
   path: null
-  revision: ce329aff6495ba9af12bd2b3a81e23efbfd0acf9-dirty
+  revision: c430ceab22c67351bde05ef2e8ca08ebd3e1717a-dirty
