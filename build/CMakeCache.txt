@@ -133,8 +133,8 @@ CMAKE_CXX_FLAGS_RELEASE:STRING=-O3 -DNDEBUG
 //Flags used by the CXX compiler during RELWITHDEBINFO builds.
 CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG
 
-//Path to a program.
-CMAKE_C_COMPILER:FILEPATH=C:/ncs/toolchains/cf2149caf2/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc.exe
+//C compiler
+CMAKE_C_COMPILER:STRING=C:/ncs/toolchains/cf2149caf2/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc.exe
 
 //A wrapper around 'ar' adding the appropriate '--plugin' option
 // for the GCC compiler
@@ -408,8 +408,8 @@ ZephyrBuildConfiguration_DIR:PATH=C:/ncs/v2.6.0/nrf/share/zephyrbuild-package/cm
 //The directory containing a CMake configuration file for Zephyr.
 Zephyr_DIR:PATH=C:/ncs/v2.6.0/zephyr/share/zephyr-package/cmake
 
-//Extra config fragments for mcuboot child image
-mcuboot_OVERLAY_CONFIG:STRING=;C:/ncs/v2.6.0/nrf/subsys/partition_manager/partition_manager_enabled.conf
+//No help, variable specified on the command line.
+mcuboot_OVERLAY_CONFIG:UNINITIALIZED=C:/ncs/v2.6.0/nrf/subsys/partition_manager/partition_manager_enabled.conf
 
 //Value Computed by CMake
 nrf_connect_sdk_intermediate_BINARY_DIR:STATIC=C:/Scoreboard/scoreboard_firmware/build
@@ -480,6 +480,8 @@ CMAKE_CXX_FLAGS_MINSIZEREL-ADVANCED:INTERNAL=1
 CMAKE_CXX_FLAGS_RELEASE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_CXX_FLAGS_RELWITHDEBINFO
 CMAKE_CXX_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: CMAKE_C_COMPILER
+CMAKE_C_COMPILER-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_C_COMPILER_AR
 CMAKE_C_COMPILER_AR-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_C_COMPILER_RANLIB

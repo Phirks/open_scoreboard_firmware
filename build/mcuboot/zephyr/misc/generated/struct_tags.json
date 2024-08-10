@@ -5,8 +5,8 @@
         "net_mgmt_socket",
         "tls_context",
         "websocket_context",
-        "net_context",
-        "modem_socket"
+        "modem_socket",
+        "net_context"
     ],
     "__subsystem": [
         "flash_driver_api",
