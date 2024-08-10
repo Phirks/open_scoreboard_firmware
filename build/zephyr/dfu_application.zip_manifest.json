@@ -1,6 +1,6 @@
 {
     "format-version": 0,
-    "time": 1722995953,
+    "time": 1723325330,
     "files": [
         {
             "load_address": 49664,
@@ -10,13 +10,13 @@
             "soc": "nRF52832_QFAA",
             "size": 209520,
             "file": "app_update.bin",
-            "modtime": 1722995953
+            "modtime": 1723325330
         }
     ],
     "name": "scoreboard_firmware",
     "firmware": {
         "zephyr": {
-            "revision": "c430ceab22c67351bde05ef2e8ca08ebd3e1717a-dirty"
+            "revision": "2d10bcf0ca67f7f64e52077c9550ce3b6a4b62fa-dirty"
         },
         "nrf": {
             "revision": "3190fa573ff67bfb745028f203e9d0ea4144a1ce-dirty"
