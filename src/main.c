@@ -49,6 +49,10 @@
 
 #include <bluetooth/services/lbs.h>
 
+#include <zephyr/pm/device.h>
+#include <zephyr/sys/poweroff.h>
+#include <zephyr/sys/util.h>
+
 // #include <dk_buttons_and_leds.h>
 
 #define NDEF_MSG_BUF_SIZE 256
@@ -79,6 +83,13 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 #define PWM_PERIOD_NS 25500
 
+#define STACK_SIZE 1024 // Define the stack size for your thread
+
+K_THREAD_STACK_DEFINE(button_stack, STACK_SIZE);
+
+static struct k_work button_work;
+static struct k_work_q work_queue;
+
 static const struct gpio_dt_spec piezo = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), piezo_pin_gpios);
 
 static const struct gpio_dt_spec segment_a = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), segment_a_ctrl_pin_gpios);
@@ -88,6 +99,9 @@ static const struct gpio_dt_spec segment_d = GPIO_DT_SPEC_GET(DT_PATH(zephyr_use
 static const struct gpio_dt_spec segment_e = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), segment_e_ctrl_pin_gpios);
 static const struct gpio_dt_spec segment_f = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), segment_f_ctrl_pin_gpios);
 static const struct gpio_dt_spec segment_g = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), segment_g_ctrl_pin_gpios);
+static const struct gpio_dt_spec mode_button = GPIO_DT_SPEC_GET(DT_PATH(buttons, mode_button), gpios);
+static const struct gpio_dt_spec left_button = GPIO_DT_SPEC_GET(DT_PATH(buttons, left_button), gpios);
+static const struct gpio_dt_spec right_button = GPIO_DT_SPEC_GET(DT_PATH(buttons, right_button), gpios);
 
 //(DT_PATH(zephyr_user), red_bttm_ctrl_pin_gpios);
 static const struct gpio_dt_spec rb1_gpio = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), red_bttm_ctrl_pin_gpios);
@@ -96,6 +110,7 @@ static const struct gpio_dt_spec bb1_gpio = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user
 static const struct gpio_dt_spec rb2_gpio = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), red_bttm_ctrl_2_pin_gpios);
 static const struct gpio_dt_spec gb2_gpio = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), green_bttm_ctrl_2_pin_gpios);
 static const struct gpio_dt_spec bb2_gpio = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), blue_bttm_ctrl_2_pin_gpios);
+static struct gpio_callback button_cb_data;
 
 static const struct pwm_dt_spec rl1 = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_rl1));
 static const struct pwm_dt_spec gl1 = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_gl1));
@@ -116,17 +131,24 @@ static const struct pwm_dt_spec br2 = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_br2));
 
 char mode = 0x00;
 
-int hour = 12;
+int militaryTime = 0;
+int alarmOn = 0;
+int hour = 0;
 int minute = 0;
 int second = 0;
+int alarmHour = 0;
+int alarmMinute = 0;
 
 int timerMinutes = 0;
 int timerSeconds = 0;
+int timerStarted = 0;
 
 int leftScore = 00;
 int leftColor[3] = {255, 0, 0};
 int rightScore = 00;
 int rightColor[3] = {0, 0, 255};
+int clockColor[3] = {255, 0, 0};
+int alarmColor[3] = {0, 255, 0};
 
 char hexCache1 = 0x00;
 char hexCache2 = 0x00;
@@ -148,8 +170,21 @@ uint8_t oldRightScore = NULL;
 uint8_t oldRightColor0 = NULL;
 uint8_t oldRightColor1 = NULL;
 uint8_t oldRightColor2 = NULL;
+uint8_t oldClockColor0 = NULL;
+uint8_t oldClockColor1 = NULL;
+uint8_t oldClockColor2 = NULL;
+uint8_t oldAlarmColor0 = NULL;
+uint8_t oldAlarmColor1 = NULL;
+uint8_t oldAlarmColor2 = NULL;
 uint8_t oldHexCache1 = NULL;
 uint8_t oldHexCache2 = NULL;
+uint8_t oldTimerStarted = NULL;
+uint8_t oldAlarmHour = NULL;
+uint8_t oldAlarmMinute = NULL;
+uint8_t oldMilitaryTime = NULL;
+uint8_t oldAlarmOn = NULL;
+
+bool buttonLockout = false;
 
 /* Copyright (c) 2009 Nordic Semiconductor. All Rights Reserved.
  *
@@ -374,6 +409,15 @@ uint32_t sin_scaled(uint32_t input, uint32_t input_max, uint32_t output_min, uin
 	return (uint32_t)(((sin_val + 1.0f) / 2.0f) * (float)(output_max - output_min)) + output_min;
 }
 
+void turnOff()
+{
+	mode = 0x06;
+	k_msleep(100);
+	gpio_pin_interrupt_configure_dt(&mode_button, GPIO_INT_LEVEL_ACTIVE);
+	k_msleep(10);
+	sys_poweroff();
+}
+
 // int main(void)
 // {
 //     uint32_t counter = 0;
@@ -461,12 +505,64 @@ void set_raw(int position, char bits, char red, char green, char blue)
 
 static void display_time()
 {
-	set_digit(0, hour / 10, 128, 128, 128);
-	set_digit(1, hour % 10, 128, 128, 128);
-	set_digit(2, minute / 10, 128, 128, 128);
-	set_digit(3, minute % 10, 128, 128, 128);
-	set_digit(4, 0b00000000, 0, 0, 0);
-	set_digit(5, 0b00000000, 0, 0, 0);
+	int displayHour;
+	if (militaryTime == 0)
+	{
+		if (hour > 11)
+		{
+			displayHour = hour - 12;
+			if (displayHour == 0)
+			{
+				displayHour = 12;
+			}
+		}
+	}
+	else
+	{
+		displayHour = hour;
+	}
+	set_raw(4, 0b00000100, clockColor[0] != 0, clockColor[1] != 0, clockColor[2] != 0);
+	if (militaryTime == 0 && hour > 11)
+	{
+		set_raw(5, BIT(2) | alarmOn * BIT(1), clockColor[0], clockColor[1], clockColor[2]);
+	}
+	else
+	{
+		set_raw(5, alarmOn * BIT(1), clockColor[0], clockColor[1], clockColor[2]);
+	}
+	set_digit(0, displayHour / 10, clockColor[0], clockColor[1], clockColor[2]);
+	set_digit(1, displayHour % 10, clockColor[0], clockColor[1], clockColor[2]);
+	set_digit(2, minute / 10, clockColor[0], clockColor[1], clockColor[2]);
+	set_digit(3, minute % 10, clockColor[0], clockColor[1], clockColor[2]);
+}
+static void display_alarm()
+{
+	int displayAlarmHour;
+	if (militaryTime == 0)
+	{
+		displayAlarmHour = alarmHour % 12;
+		if (displayAlarmHour == 0)
+		{
+			displayAlarmHour = 12;
+		}
+	}
+	else
+	{
+		displayAlarmHour = alarmHour;
+	}
+	set_raw(4, 0b00000000, alarmColor[0] != 0, alarmColor[1] != 0, alarmColor[2] != 0);
+	if (militaryTime == 0 && alarmHour > 11)
+	{
+		set_raw(5, BIT(2) | alarmOn * BIT(1), 128, 128, 128);
+	}
+	else
+	{
+		set_raw(5, alarmOn * BIT(1), 128, 128, 128);
+	}
+	set_digit(0, displayAlarmHour / 10, alarmColor[0], alarmColor[1], alarmColor[2]);
+	set_digit(1, displayAlarmHour % 10, alarmColor[0], alarmColor[1], alarmColor[2]);
+	set_digit(2, alarmMinute / 10, alarmColor[0], alarmColor[1], alarmColor[2]);
+	set_digit(3, alarmMinute % 10, alarmColor[0], alarmColor[1], alarmColor[2]);
 }
 
 static void display_timer()
@@ -475,8 +571,8 @@ static void display_timer()
 	set_digit(1, timerMinutes % 10, 128, 128, 128);
 	set_digit(2, timerSeconds / 10, 128, 128, 128);
 	set_digit(3, timerSeconds % 10, 128, 128, 128);
-	set_digit(4, 0b00000000, 0, 0, 0);
-	set_digit(5, 0b00000000, 0, 0, 0);
+	set_raw(4, 0b00000000, 0, 0, 0);
+	set_raw(5, 0b00000000, 0, 0, 0);
 	if (timerSeconds > 99)
 	{
 		disp[0][5][3] = rightColor[0];
@@ -499,6 +595,8 @@ static void display_timer()
 
 void display_score()
 {
+	set_raw(4, 0b00000000, 0, 0, 0);
+	set_raw(5, 0b00000000, 0, 0, 0);
 	if (leftScore > 199)
 	{
 		leftScore = 199;
@@ -556,6 +654,15 @@ void display_score()
 	set_digit(2, rightScore / 10 % 10, rightColor[0], rightColor[1], rightColor[2]);
 	set_digit(3, rightScore % 10, rightColor[0], rightColor[1], rightColor[2]);
 }
+void display_off()
+{
+	set_raw(0, 0b00000000, 0, 0, 0);
+	set_raw(1, 0b00000000, 0, 0, 0);
+	set_raw(2, 0b00000000, 0, 0, 0);
+	set_raw(3, 0b00000000, 0, 0, 0);
+	set_raw(4, 0b00000000, 0, 0, 0);
+	set_raw(5, 0b00000000, 0, 0, 0);
+}
 
 void display_hex(char byte1, char byte2)
 {
@@ -580,9 +687,9 @@ static void timer0_handler(struct k_timer *dummy)
 		hour++;
 		minute = 0;
 	}
-	if (hour >= 13)
+	if (hour >= 24)
 	{
-		hour = 1;
+		hour = 0;
 	}
 }
 
@@ -590,9 +697,9 @@ static void timer4_handler(struct k_timer *dummy)
 {
 	if (timerMinutes < 1 && timerSeconds < 1)
 	{
-		k_timer_stop(&timer4);
+		timerStarted = 2;
 	}
-	if (timerSeconds < 1)
+	else if (timerSeconds < 1)
 	{
 		timerMinutes = timerMinutes - 1;
 		timerSeconds = 59;
@@ -821,7 +928,7 @@ static void bt_receive_cb(struct bt_conn *conn, const uint8_t *const data,
 	case 0x06: // setTime
 		if (len > 2)
 		{
-			k_timer_start(&timer0, K_MSEC(1000), K_MSEC(1000));
+			timerStarted = 1;
 
 			hour = data[1];
 			minute = data[2];
@@ -841,7 +948,7 @@ static void bt_receive_cb(struct bt_conn *conn, const uint8_t *const data,
 		}
 		break;
 	case 0x09: // startTimer
-		k_timer_start(&timer4, K_MSEC(1000), K_MSEC(1000));
+		timerStarted = 3;
 		break;
 	case 0x0A: // displayTimer
 		mode = 0x04;
@@ -976,6 +1083,433 @@ static void nfc_callback(void *context,
 	}
 }
 
+void button_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+{
+	if (!buttonLockout)
+	{
+		k_work_submit_to_queue(&work_queue, &button_work);
+	}
+}
+
+static void button_work_handler(struct k_work *work)
+{
+	buttonLockout = true;
+	bool pinArray[3] = {gpio_pin_get_dt(&left_button), gpio_pin_get_dt(&right_button), gpio_pin_get_dt(&mode_button)};
+	int buttonTimeIter = 0;
+	int buttonTimePollingRateMS = 10;
+	int buttonTimeShortPress = 50;
+	int buttonTimeLongpress = 500;
+	int buttonTimeLongpressRepeat = 500;
+	int buttonTimeLongpressAcceleration = 50;
+	int buttonTimeLongpressRepeatMin = 100;
+	while (1) // wait until all buttons are no longer pushed or a button/combination of buttons has been longpressed;
+	{
+		bool newPinArray[3] = {gpio_pin_get_dt(&left_button), gpio_pin_get_dt(&right_button), gpio_pin_get_dt(&mode_button)};
+		if (!newPinArray[0] && !newPinArray[1] && !newPinArray[2])
+		{
+			break;
+		}
+		if (pinArray[0] == newPinArray[0] && pinArray[1] == newPinArray[1] && pinArray[2] == newPinArray[2])
+		{
+			buttonTimeIter = buttonTimeIter + buttonTimePollingRateMS;
+		}
+		else
+		{
+			pinArray[0] = newPinArray[0];
+			pinArray[1] = newPinArray[1];
+			pinArray[2] = newPinArray[2];
+			buttonTimeIter = 0;
+		}
+		if (buttonTimeIter >= buttonTimeLongpress)
+		{
+			break;
+		}
+		k_msleep(buttonTimePollingRateMS);
+	}
+	// now pinArray should have the button combination debounced and buttonTimeIter should have the time in ms the button was pushed
+	switch (mode)
+	{
+	case 0x00:
+		if (buttonTimeIter < buttonTimeShortPress)
+		{
+			buttonLockout = false;
+			return;
+		}
+		else if (buttonTimeIter < buttonTimeLongpress)
+		{
+			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button shortpress
+			{
+				if (leftScore < 199)
+				{
+					leftScore++;
+				}
+			}
+			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right button shortpress
+			{
+				if (rightScore < 199)
+				{
+					rightScore++;
+				}
+			}
+			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
+			{
+				mode = 0x04;
+			}
+			else
+			{
+				buttonLockout = false;
+				return;
+			}
+		}
+		else if (buttonTimeIter >= buttonTimeLongpress)
+		{
+			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button longpress
+			{
+				while (gpio_pin_get_dt(&left_button) && !gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
+				{
+					if (leftScore > 0)
+					{
+						leftScore--;
+					}
+					k_msleep(buttonTimeLongpressRepeat);
+					buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
+					if (buttonTimeLongpressRepeat < buttonTimeLongpressRepeatMin)
+					{
+						buttonTimeLongpressRepeat = buttonTimeLongpressRepeatMin;
+					}
+				}
+			}
+			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right buttonlongpress
+			{
+				while (!gpio_pin_get_dt(&left_button) && gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
+				{
+					if (rightScore > 0)
+					{
+						rightScore--;
+					}
+					k_msleep(buttonTimeLongpressRepeat);
+					buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
+					if (buttonTimeLongpressRepeat < buttonTimeLongpressRepeatMin)
+					{
+						buttonTimeLongpressRepeat = buttonTimeLongpressRepeatMin;
+					}
+				}
+			}
+			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
+			{
+				rightScore = 0;
+				leftScore = 0;
+			}
+			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button longpress
+			{
+				turnOff();
+			}
+			else
+			{
+				buttonLockout = false;
+				return;
+			}
+		}
+		else
+		{
+			buttonLockout = false;
+			return;
+		}
+		break;
+
+	case 0x04: // timer mode
+		if (buttonTimeIter < buttonTimeShortPress)
+		{
+			buttonLockout = false;
+			return;
+		}
+		else if (buttonTimeIter < buttonTimeLongpress)
+		{
+			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button shortpress
+			{
+				if (timerStarted == 0 || timerStarted == 2)
+				{
+					timerSeconds = 0;
+					if (timerMinutes < 199)
+					{
+						timerMinutes = timerMinutes + 1;
+					}
+				}
+			}
+			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right button shortpress
+			{
+				if (timerStarted == 0 || timerStarted == 2)
+				{
+					timerStarted = 3;
+				}
+				else if (timerStarted == 1 || timerStarted == 3)
+				{
+					timerStarted = 2;
+				}
+			}
+			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
+			{
+				mode = 0x01;
+			}
+			else
+			{
+				buttonLockout = false;
+				return;
+			}
+		}
+		else if (buttonTimeIter >= buttonTimeLongpress)
+		{
+			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button longpress
+			{
+				while (gpio_pin_get_dt(&left_button) && !gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
+				{
+					if (timerStarted == 0 || timerStarted == 2)
+					{
+						if (timerMinutes < 199)
+						{
+							timerMinutes++;
+						}
+						k_msleep(buttonTimeLongpressRepeat);
+						buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
+						if (buttonTimeLongpressRepeat < buttonTimeLongpressRepeatMin)
+						{
+							buttonTimeLongpressRepeat = buttonTimeLongpressRepeatMin;
+						}
+					}
+				}
+			}
+			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right buttonlongpress
+			{
+			}
+			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
+			{
+				timerMinutes = 0;
+				timerSeconds = 0;
+			}
+			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button longpress
+			{
+				turnOff();
+			}
+			else
+			{
+				buttonLockout = false;
+				return;
+			}
+		}
+		else
+		{
+			buttonLockout = false;
+			return;
+		}
+		break;
+	case 0x01: // clock mode
+		if (buttonTimeIter < buttonTimeShortPress)
+		{
+			buttonLockout = false;
+			return;
+		}
+		else if (buttonTimeIter < buttonTimeLongpress)
+		{
+			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button shortpress
+			{
+			}
+			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right button shortpress
+			{
+			}
+			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
+			{
+				mode = 0x05;
+			}
+			else
+			{
+				buttonLockout = false;
+				return;
+			}
+		}
+		else if (buttonTimeIter >= buttonTimeLongpress)
+		{
+			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button longpress
+			{
+
+				while (gpio_pin_get_dt(&left_button) && !gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
+				{
+					second = 0;
+					if (minute < 59)
+					{
+						minute++;
+					}
+					else if (alarmHour < 23)
+					{
+						hour++;
+						minute = 0;
+					}
+					else
+					{
+						hour = 0;
+						minute = 0;
+					}
+					k_msleep(buttonTimeLongpressRepeat);
+					buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
+					if (buttonTimeLongpressRepeat < buttonTimeLongpressRepeatMin)
+					{
+						buttonTimeLongpressRepeat = buttonTimeLongpressRepeatMin;
+					}
+				}
+			}
+			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right buttonlongpress
+			{
+				if (militaryTime == 0)
+				{
+					militaryTime = 1;
+				}
+				else
+				{
+					militaryTime = 0;
+				}
+			}
+			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
+			{
+				hour = 0;
+				minute = 0;
+				second = 0;
+			}
+			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button longpress
+			{
+				turnOff();
+			}
+			else
+			{
+				buttonLockout = false;
+				return;
+			}
+		}
+		else
+		{
+			buttonLockout = false;
+			return;
+		}
+		break;
+
+	case 0x05: // alarm set mode
+		if (buttonTimeIter < buttonTimeShortPress)
+		{
+			buttonLockout = false;
+			return;
+		}
+		else if (buttonTimeIter < buttonTimeLongpress)
+		{
+			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button shortpress
+			{
+				if (alarmMinute < 59)
+				{
+					alarmMinute++;
+				}
+				else if (alarmHour < 23)
+				{
+					alarmHour++;
+					alarmMinute = 0;
+				}
+				else
+				{
+					alarmHour = 0;
+					alarmMinute = 0;
+				}
+			}
+			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right button shortpress
+			{
+				if (alarmOn == 0)
+				{
+					alarmOn = 1;
+				}
+				else
+				{
+					alarmOn = 0;
+				}
+			}
+			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
+			{
+				mode = 0x00;
+			}
+			else
+			{
+				buttonLockout = false;
+				return;
+			}
+		}
+		else if (buttonTimeIter >= buttonTimeLongpress)
+		{
+			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button longpress
+			{
+				while (gpio_pin_get_dt(&left_button) && !gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
+				{
+					if (alarmMinute < 55)
+					{
+						alarmMinute = (alarmMinute / 5 * 5) + 5;
+					}
+					else if (alarmHour < 23)
+					{
+						alarmHour++;
+						alarmMinute = 0;
+					}
+					else
+					{
+						alarmHour = 0;
+						alarmMinute = 0;
+					}
+					k_msleep(buttonTimeLongpressRepeat);
+					buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
+					if (buttonTimeLongpressRepeat < buttonTimeLongpressRepeatMin)
+					{
+						buttonTimeLongpressRepeat = buttonTimeLongpressRepeatMin;
+					}
+				}
+			}
+			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right buttonlongpress
+			{
+			}
+			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
+			{
+				timerMinutes = 0;
+				timerSeconds = 0;
+			}
+			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button longpress
+			{
+				turnOff();
+			}
+			else
+			{
+				buttonLockout = false;
+				return;
+			}
+		}
+		else
+		{
+			buttonLockout = false;
+			return;
+		}
+		break;
+
+	default:
+		if (buttonTimeIter < buttonTimeShortPress)
+		{
+			buttonLockout = false;
+			return;
+		}
+		else if (buttonTimeIter >= buttonTimeLongpress && pinArray[0] == false && pinArray[1] == false && pinArray[2] == true)
+		{
+			turnOff();
+		}
+		else
+		{
+			mode = 0x00;
+		}
+		break;
+	}
+
+	buttonLockout = false;
+	return;
+}
+
 static void configure_gpio(void)
 {
 	int err;
@@ -994,6 +1528,16 @@ static void configure_gpio(void)
 	gpio_pin_configure_dt(&gb2_gpio, GPIO_OUTPUT_INACTIVE);
 	gpio_pin_configure_dt(&bb2_gpio, GPIO_OUTPUT_INACTIVE);
 	gpio_pin_configure_dt(&piezo, GPIO_OUTPUT_INACTIVE);
+	gpio_pin_configure_dt(&mode_button, GPIO_INPUT);
+	gpio_pin_configure_dt(&left_button, GPIO_INPUT);
+	gpio_pin_configure_dt(&right_button, GPIO_INPUT);
+
+	gpio_pin_interrupt_configure_dt(&mode_button, GPIO_INT_EDGE_TO_ACTIVE);
+	gpio_pin_interrupt_configure_dt(&left_button, GPIO_INT_EDGE_TO_ACTIVE);
+	gpio_pin_interrupt_configure_dt(&right_button, GPIO_INT_EDGE_TO_ACTIVE);
+
+	gpio_init_callback(&button_cb_data, button_pressed, BIT(left_button.pin) | BIT(right_button.pin) | BIT(mode_button.pin));
+	gpio_add_callback(mode_button.port, &button_cb_data);
 
 	gpio_pin_set_dt(&segment_a, 0);
 	gpio_pin_set_dt(&segment_b, 0);
@@ -1010,6 +1554,10 @@ static void configure_gpio(void)
 	gpio_pin_set_dt(&bb2_gpio, 0);
 	gpio_pin_set_dt(&piezo, 0);
 
+	k_work_queue_start(&work_queue, button_stack, K_THREAD_STACK_SIZEOF(button_stack),
+					   PRIORITY, NULL);
+
+	k_work_init(&button_work, button_work_handler);
 	// #ifdef CONFIG_BT_NUS_SECURITY_ENABLED
 	// 	err = dk_buttons_init(button_changed);
 	// 	if (err) {
@@ -1198,9 +1746,19 @@ int main(void)
 	}
 
 	k_timer_start(&timer0, K_MSEC(1000), K_MSEC(1000));
+
 	for (;;)
 	{
-
+		if (timerStarted == 3)
+		{
+			k_timer_start(&timer4, K_MSEC(1000), K_MSEC(1000));
+			timerStarted = 1;
+		}
+		else if (timerStarted == 2)
+		{
+			k_timer_stop(&timer4);
+			timerStarted = 0;
+		}
 		switch (mode)
 		{
 		case 0x00:
@@ -1217,6 +1775,12 @@ int main(void)
 			break;
 		case 0x04:
 			display_timer();
+			break;
+		case 0x05:
+			display_alarm();
+			break;
+		case 0x06:
+			display_off();
 			break;
 		default:
 		}
