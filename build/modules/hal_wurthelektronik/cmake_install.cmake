@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.0/modules/hal/wurthelektronik
+# Install script for directory: C:/ncs/v2.6.99-cs1/modules/hal/wurthelektronik
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.0/nrfxlib/softdevice_controller
+# Install script for directory: C:/ncs/v2.6.99-cs1/nrfxlib/softdevice_controller
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

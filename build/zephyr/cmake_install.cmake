@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.0/zephyr
+# Install script for directory: C:/ncs/v2.6.99-cs1/zephyr
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -109,6 +109,11 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
+  include("C:/Scoreboard/scoreboard_firmware/build/modules/suit-processor/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
   include("C:/Scoreboard/scoreboard_firmware/build/modules/memfault-firmware-sdk/cmake_install.cmake")
 endif()
 
@@ -164,7 +169,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Scoreboard/scoreboard_firmware/build/modules/st/cmake_install.cmake")
+  include("C:/Scoreboard/scoreboard_firmware/build/modules/hal_st/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)

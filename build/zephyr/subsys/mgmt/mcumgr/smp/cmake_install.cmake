@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.0/zephyr/subsys/mgmt/mcumgr/smp
+# Install script for directory: C:/ncs/v2.6.99-cs1/zephyr/subsys/mgmt/mcumgr/smp
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

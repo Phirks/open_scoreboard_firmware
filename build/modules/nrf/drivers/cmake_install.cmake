@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.0/nrf/drivers
+# Install script for directory: C:/ncs/v2.6.99-cs1/nrf/drivers
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -55,5 +55,10 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
   include("C:/Scoreboard/scoreboard_firmware/build/modules/nrf/drivers/serial/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Scoreboard/scoreboard_firmware/build/modules/nrf/drivers/flash/cmake_install.cmake")
 endif()
 

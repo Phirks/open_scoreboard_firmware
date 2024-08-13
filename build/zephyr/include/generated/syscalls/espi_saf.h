@@ -186,6 +186,30 @@ static inline int espi_saf_flash_erase(const struct device * dev, struct espi_sa
 #endif
 
 
+extern int z_impl_espi_saf_flash_unsuccess(const struct device * dev, struct espi_saf_packet * pckt);
+
+__pinned_func
+static inline int espi_saf_flash_unsuccess(const struct device * dev, struct espi_saf_packet * pckt)
+{
+#ifdef CONFIG_USERSPACE
+	if (z_syscall_trap()) {
+		union { uintptr_t x; const struct device * val; } parm0 = { .val = dev };
+		union { uintptr_t x; struct espi_saf_packet * val; } parm1 = { .val = pckt };
+		return (int) arch_syscall_invoke2(parm0.x, parm1.x, K_SYSCALL_ESPI_SAF_FLASH_UNSUCCESS);
+	}
+#endif
+	compiler_barrier();
+	return z_impl_espi_saf_flash_unsuccess(dev, pckt);
+}
+
+#if defined(CONFIG_TRACING_SYSCALL)
+#ifndef DISABLE_SYSCALL_TRACING
+
+#define espi_saf_flash_unsuccess(dev, pckt) ({ 	int syscall__retval; 	sys_port_trace_syscall_enter(K_SYSCALL_ESPI_SAF_FLASH_UNSUCCESS, espi_saf_flash_unsuccess, dev, pckt); 	syscall__retval = espi_saf_flash_unsuccess(dev, pckt); 	sys_port_trace_syscall_exit(K_SYSCALL_ESPI_SAF_FLASH_UNSUCCESS, espi_saf_flash_unsuccess, dev, pckt, syscall__retval); 	syscall__retval; })
+#endif
+#endif
+
+
 #ifdef __cplusplus
 }
 #endif

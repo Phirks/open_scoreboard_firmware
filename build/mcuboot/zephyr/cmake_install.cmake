@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.0/zephyr
+# Install script for directory: C:/ncs/v2.6.99-cs1/zephyr
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -53,6 +53,7 @@ if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/azure-sdk-for-c/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/cirrus-logic/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/openthread/cmake_install.cmake")
+  include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/suit-processor/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/memfault-firmware-sdk/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/canopennode/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/chre/cmake_install.cmake")
@@ -64,7 +65,7 @@ if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/cmsis-nn/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/fatfs/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/hal_nordic/cmake_install.cmake")
-  include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/st/cmake_install.cmake")
+  include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/hal_st/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/hal_wurthelektronik/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/libmetal/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/liblc3/cmake_install.cmake")

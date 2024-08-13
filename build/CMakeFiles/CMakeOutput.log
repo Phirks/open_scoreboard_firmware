@@ -1,4 +1,4 @@
-The target system is: Generic - 3.5.99 - arm
+The target system is: Generic - 3.6.99 - arm
 The host system is: Windows - 10.0.19045 - AMD64
 Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
 Compiler: C:/ncs/toolchains/cf2149caf2/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc.exe 

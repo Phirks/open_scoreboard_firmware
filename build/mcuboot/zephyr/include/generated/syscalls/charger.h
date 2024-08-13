@@ -70,6 +70,30 @@ static inline int charger_set_prop(const struct device * dev, const charger_prop
 #endif
 
 
+extern int z_impl_charger_charge_enable(const struct device * dev, const bool enable);
+
+__pinned_func
+static inline int charger_charge_enable(const struct device * dev, const bool enable)
+{
+#ifdef CONFIG_USERSPACE
+	if (z_syscall_trap()) {
+		union { uintptr_t x; const struct device * val; } parm0 = { .val = dev };
+		union { uintptr_t x; const bool val; } parm1 = { .val = enable };
+		return (int) arch_syscall_invoke2(parm0.x, parm1.x, K_SYSCALL_CHARGER_CHARGE_ENABLE);
+	}
+#endif
+	compiler_barrier();
+	return z_impl_charger_charge_enable(dev, enable);
+}
+
+#if defined(CONFIG_TRACING_SYSCALL)
+#ifndef DISABLE_SYSCALL_TRACING
+
+#define charger_charge_enable(dev, enable) ({ 	int syscall__retval; 	sys_port_trace_syscall_enter(K_SYSCALL_CHARGER_CHARGE_ENABLE, charger_charge_enable, dev, enable); 	syscall__retval = charger_charge_enable(dev, enable); 	sys_port_trace_syscall_exit(K_SYSCALL_CHARGER_CHARGE_ENABLE, charger_charge_enable, dev, enable, syscall__retval); 	syscall__retval; })
+#endif
+#endif
+
+
 #ifdef __cplusplus
 }
 #endif

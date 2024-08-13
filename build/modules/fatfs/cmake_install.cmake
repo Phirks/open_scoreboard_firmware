@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.0/zephyr/modules/fatfs
+# Install script for directory: C:/ncs/v2.6.99-cs1/zephyr/modules/fatfs
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

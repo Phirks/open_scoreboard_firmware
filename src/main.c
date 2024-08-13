@@ -553,11 +553,11 @@ static void display_alarm()
 	set_raw(4, 0b00000000, alarmColor[0] != 0, alarmColor[1] != 0, alarmColor[2] != 0);
 	if (militaryTime == 0 && alarmHour > 11)
 	{
-		set_raw(5, BIT(2) | alarmOn * BIT(1), 128, 128, 128);
+		set_raw(5, BIT(2) | alarmOn * BIT(1),  alarmColor[0] != 0, alarmColor[2] != 0, alarmColor[1] != 0);
 	}
 	else
 	{
-		set_raw(5, alarmOn * BIT(1), 128, 128, 128);
+		set_raw(5, alarmOn * BIT(1),  alarmColor[0] != 0, alarmColor[2] != 0, alarmColor[1] != 0);
 	}
 	set_digit(0, displayAlarmHour / 10, alarmColor[0], alarmColor[1], alarmColor[2]);
 	set_digit(1, displayAlarmHour % 10, alarmColor[0], alarmColor[1], alarmColor[2]);
@@ -1097,7 +1097,7 @@ static void button_work_handler(struct k_work *work)
 	bool pinArray[3] = {gpio_pin_get_dt(&left_button), gpio_pin_get_dt(&right_button), gpio_pin_get_dt(&mode_button)};
 	int buttonTimeIter = 0;
 	int buttonTimePollingRateMS = 10;
-	int buttonTimeShortPress = 50;
+	int buttonTimeShortpress = 50;
 	int buttonTimeLongpress = 500;
 	int buttonTimeLongpressRepeat = 500;
 	int buttonTimeLongpressAcceleration = 50;
@@ -1115,6 +1115,10 @@ static void button_work_handler(struct k_work *work)
 		}
 		else
 		{
+			if(buttonTimeIter >= buttonTimeShortpress)
+			{
+				break;
+			}
 			pinArray[0] = newPinArray[0];
 			pinArray[1] = newPinArray[1];
 			pinArray[2] = newPinArray[2];
@@ -1130,7 +1134,7 @@ static void button_work_handler(struct k_work *work)
 	switch (mode)
 	{
 	case 0x00:
-		if (buttonTimeIter < buttonTimeShortPress)
+		if (buttonTimeIter < buttonTimeShortpress)
 		{
 			buttonLockout = false;
 			return;
@@ -1154,6 +1158,11 @@ static void button_work_handler(struct k_work *work)
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
 			{
 				mode = 0x04;
+			}
+			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
+			{
+				rightScore = 0;
+				leftScore = 0;
 			}
 			else
 			{
@@ -1218,7 +1227,7 @@ static void button_work_handler(struct k_work *work)
 		break;
 
 	case 0x04: // timer mode
-		if (buttonTimeIter < buttonTimeShortPress)
+		if (buttonTimeIter < buttonTimeShortpress)
 		{
 			buttonLockout = false;
 			return;
@@ -1229,7 +1238,6 @@ static void button_work_handler(struct k_work *work)
 			{
 				if (timerStarted == 0 || timerStarted == 2)
 				{
-					timerSeconds = 0;
 					if (timerMinutes < 199)
 					{
 						timerMinutes = timerMinutes + 1;
@@ -1240,11 +1248,27 @@ static void button_work_handler(struct k_work *work)
 			{
 				if (timerStarted == 0 || timerStarted == 2)
 				{
-					timerStarted = 3;
+					if (timerSeconds < 59)
+					{
+						timerSeconds = timerSeconds + 1;
+					}
+					else if(timerMinutes<199)
+					{
+						timerSeconds = 0;
+						timerMinutes = timerMinutes + 1;
+					}
 				}
-				else if (timerStarted == 1 || timerStarted == 3)
-				{
-					timerStarted = 2;
+			}
+			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
+			{
+				if(timerStarted==0 || timerStarted==2){
+					timerStarted=3;
+				}
+				else if(timerStarted==1 || timerStarted==3){
+					timerStarted=2;
+				
+				}else{
+					timerStarted=2;
 				}
 			}
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
@@ -1265,26 +1289,58 @@ static void button_work_handler(struct k_work *work)
 				{
 					if (timerStarted == 0 || timerStarted == 2)
 					{
-						if (timerMinutes < 199)
+						if (timerMinutes > 0)
 						{
-							timerMinutes++;
+							timerMinutes = timerMinutes -1;
 						}
-						k_msleep(buttonTimeLongpressRepeat);
-						buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
-						if (buttonTimeLongpressRepeat < buttonTimeLongpressRepeatMin)
-						{
-							buttonTimeLongpressRepeat = buttonTimeLongpressRepeatMin;
+						else{
+							timerSeconds=0;
 						}
+					}
+					k_msleep(buttonTimeLongpressRepeat);
+					buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
+					if (buttonTimeLongpressRepeat < buttonTimeLongpressRepeatMin)
+					{
+						buttonTimeLongpressRepeat = buttonTimeLongpressRepeatMin;
 					}
 				}
 			}
 			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right buttonlongpress
 			{
+				while (!gpio_pin_get_dt(&left_button) && gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
+				{
+					if (timerStarted == 0 || timerStarted == 2)
+					{
+						if (timerSeconds > 0)
+						{
+							timerSeconds = timerSeconds - 1;
+						}
+						else if(timerMinutes>0)
+						{
+							timerSeconds = 59;
+							timerMinutes = timerMinutes - 1;
+						}
+					}
+					k_msleep(buttonTimeLongpressRepeat);
+					buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
+					if (buttonTimeLongpressRepeat < buttonTimeLongpressRepeatMin)
+					{
+						buttonTimeLongpressRepeat = buttonTimeLongpressRepeatMin;
+					}
+				}
 			}
 			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
 			{
-				timerMinutes = 0;
-				timerSeconds = 0;
+				if(timerStarted==0 || timerStarted==2){
+					timerStarted=3;
+				}
+				else if(timerStarted==1 || timerStarted==3){
+					timerStarted=2;
+				
+				}else{
+					timerStarted=2;
+				}
+
 			}
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button longpress
 			{
@@ -1303,7 +1359,7 @@ static void button_work_handler(struct k_work *work)
 		}
 		break;
 	case 0x01: // clock mode
-		if (buttonTimeIter < buttonTimeShortPress)
+		if (buttonTimeIter < buttonTimeShortpress)
 		{
 			buttonLockout = false;
 			return;
@@ -1312,9 +1368,44 @@ static void button_work_handler(struct k_work *work)
 		{
 			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button shortpress
 			{
+				second = 0;
+				if (hour < 23)
+				{
+					hour++;
+				}
+				else
+				{
+					hour = 0;
+				}
 			}
 			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right button shortpress
 			{
+				second = 0;
+				if (minute < 59)
+				{
+					minute++;
+				}
+				else if (hour < 23)
+				{
+					hour++;
+					minute = 0;
+				}
+				else
+				{
+					hour = 0;
+					minute = 0;
+				}
+			}
+			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
+			{
+								if (militaryTime == 0)
+				{
+					militaryTime = 1;
+				}
+				else
+				{
+					militaryTime = 0;
+				}
 			}
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
 			{
@@ -1334,19 +1425,13 @@ static void button_work_handler(struct k_work *work)
 				while (gpio_pin_get_dt(&left_button) && !gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
 				{
 					second = 0;
-					if (minute < 59)
+					 if (hour > 0)
 					{
-						minute++;
-					}
-					else if (alarmHour < 23)
-					{
-						hour++;
-						minute = 0;
+						hour--;
 					}
 					else
 					{
-						hour = 0;
-						minute = 0;
+						hour = 23;
 					}
 					k_msleep(buttonTimeLongpressRepeat);
 					buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
@@ -1358,6 +1443,33 @@ static void button_work_handler(struct k_work *work)
 			}
 			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right buttonlongpress
 			{
+				while (!gpio_pin_get_dt(&left_button) && gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
+				{
+					second = 0;
+					if (minute > 0)
+					{
+						minute--;
+					}
+					else if (alarmHour >0)
+					{
+						hour--;
+						minute = 0;
+					}
+					else
+					{
+						hour = 23;
+						minute = 59;
+					}
+					k_msleep(buttonTimeLongpressRepeat);
+					buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
+					if (buttonTimeLongpressRepeat < buttonTimeLongpressRepeatMin)
+					{
+						buttonTimeLongpressRepeat = buttonTimeLongpressRepeatMin;
+					}
+				}
+			}
+			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
+			{
 				if (militaryTime == 0)
 				{
 					militaryTime = 1;
@@ -1366,12 +1478,6 @@ static void button_work_handler(struct k_work *work)
 				{
 					militaryTime = 0;
 				}
-			}
-			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
-			{
-				hour = 0;
-				minute = 0;
-				second = 0;
 			}
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button longpress
 			{
@@ -1391,7 +1497,7 @@ static void button_work_handler(struct k_work *work)
 		break;
 
 	case 0x05: // alarm set mode
-		if (buttonTimeIter < buttonTimeShortPress)
+		if (buttonTimeIter < buttonTimeShortpress)
 		{
 			buttonLockout = false;
 			return;
@@ -1399,6 +1505,17 @@ static void button_work_handler(struct k_work *work)
 		else if (buttonTimeIter < buttonTimeLongpress)
 		{
 			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button shortpress
+			{
+				if (alarmHour < 23)
+				{
+					alarmHour++;
+				}
+				else
+				{
+					alarmHour = 0;
+				}
+			}
+			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right button shortpress
 			{
 				if (alarmMinute < 59)
 				{
@@ -1415,7 +1532,7 @@ static void button_work_handler(struct k_work *work)
 					alarmMinute = 0;
 				}
 			}
-			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right button shortpress
+			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button shortpress
 			{
 				if (alarmOn == 0)
 				{
@@ -1442,19 +1559,13 @@ static void button_work_handler(struct k_work *work)
 			{
 				while (gpio_pin_get_dt(&left_button) && !gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
 				{
-					if (alarmMinute < 55)
+					 if (alarmHour>0)
 					{
-						alarmMinute = (alarmMinute / 5 * 5) + 5;
-					}
-					else if (alarmHour < 23)
-					{
-						alarmHour++;
-						alarmMinute = 0;
+						alarmHour--;
 					}
 					else
 					{
-						alarmHour = 0;
-						alarmMinute = 0;
+						alarmHour = 23;
 					}
 					k_msleep(buttonTimeLongpressRepeat);
 					buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
@@ -1466,11 +1577,40 @@ static void button_work_handler(struct k_work *work)
 			}
 			else if (pinArray[0] == false && pinArray[1] == true && pinArray[2] == false) // right buttonlongpress
 			{
+				while (!gpio_pin_get_dt(&left_button) && gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
+				{
+					if (alarmMinute > 0)
+					{
+						alarmMinute--;
+					}
+					else if (alarmHour>0)
+					{
+						alarmHour--;
+						alarmMinute = 59;
+					}
+					else
+					{
+						alarmHour = 23;
+						alarmMinute = 59;
+					}
+					k_msleep(buttonTimeLongpressRepeat);
+					buttonTimeLongpressRepeat = buttonTimeLongpressRepeat - buttonTimeLongpressAcceleration;
+					if (buttonTimeLongpressRepeat < buttonTimeLongpressRepeatMin)
+					{
+						buttonTimeLongpressRepeat = buttonTimeLongpressRepeatMin;
+					}
+				}
 			}
 			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
 			{
-				timerMinutes = 0;
-				timerSeconds = 0;
+				if (alarmOn == 0)
+				{
+					alarmOn = 1;
+				}
+				else
+				{
+					alarmOn = 0;
+				}
 			}
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button longpress
 			{
@@ -1490,7 +1630,7 @@ static void button_work_handler(struct k_work *work)
 		break;
 
 	default:
-		if (buttonTimeIter < buttonTimeShortPress)
+		if (buttonTimeIter < buttonTimeShortpress)
 		{
 			buttonLockout = false;
 			return;

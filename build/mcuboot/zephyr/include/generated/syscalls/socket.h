@@ -321,6 +321,31 @@ static inline ssize_t zsock_recvfrom(int sock, void * buf, size_t max_len, int f
 #endif
 
 
+extern ssize_t z_impl_zsock_recvmsg(int sock, struct msghdr * msg, int flags);
+
+__pinned_func
+static inline ssize_t zsock_recvmsg(int sock, struct msghdr * msg, int flags)
+{
+#ifdef CONFIG_USERSPACE
+	if (z_syscall_trap()) {
+		union { uintptr_t x; int val; } parm0 = { .val = sock };
+		union { uintptr_t x; struct msghdr * val; } parm1 = { .val = msg };
+		union { uintptr_t x; int val; } parm2 = { .val = flags };
+		return (ssize_t) arch_syscall_invoke3(parm0.x, parm1.x, parm2.x, K_SYSCALL_ZSOCK_RECVMSG);
+	}
+#endif
+	compiler_barrier();
+	return z_impl_zsock_recvmsg(sock, msg, flags);
+}
+
+#if defined(CONFIG_TRACING_SYSCALL)
+#ifndef DISABLE_SYSCALL_TRACING
+
+#define zsock_recvmsg(sock, msg, flags) ({ 	ssize_t syscall__retval; 	sys_port_trace_syscall_enter(K_SYSCALL_ZSOCK_RECVMSG, zsock_recvmsg, sock, msg, flags); 	syscall__retval = zsock_recvmsg(sock, msg, flags); 	sys_port_trace_syscall_exit(K_SYSCALL_ZSOCK_RECVMSG, zsock_recvmsg, sock, msg, flags, syscall__retval); 	syscall__retval; })
+#endif
+#endif
+
+
 extern int z_impl_zsock_fcntl(int sock, int cmd, int flags);
 
 __pinned_func
