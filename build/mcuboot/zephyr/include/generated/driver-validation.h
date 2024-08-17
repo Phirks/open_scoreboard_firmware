@@ -40,8 +40,6 @@
 
 #define K_SYSCALL_DRIVER_EEPROM(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, eeprom, EEPROM)
 
-#define K_SYSCALL_DRIVER_EMUL_BBRAM_BACKEND_API(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, emul_bbram_backend_api, EMUL_BBRAM_BACKEND_API)
-
 #define K_SYSCALL_DRIVER_FUEL_GAUGE_EMUL(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, fuel_gauge_emul, FUEL_GAUGE_EMUL)
 
 #define K_SYSCALL_DRIVER_EMUL_SENSOR_BACKEND_API(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, emul_sensor_backend_api, EMUL_SENSOR_BACKEND_API)
@@ -75,8 +73,6 @@
 #define K_SYSCALL_DRIVER_MBOX(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, mbox, MBOX)
 
 #define K_SYSCALL_DRIVER_MDIO(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, mdio, MDIO)
-
-#define K_SYSCALL_DRIVER_MIPI_DBI(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, mipi_dbi, MIPI_DBI)
 
 #define K_SYSCALL_DRIVER_MIPI_DSI(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, mipi_dsi, MIPI_DSI)
 
@@ -125,8 +121,6 @@
 #define K_SYSCALL_DRIVER_BC12_EMUL(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, bc12_emul, BC12_EMUL)
 
 #define K_SYSCALL_DRIVER_BC12(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, bc12, BC12)
-
-#define K_SYSCALL_DRIVER_USBC_PPC_DRV(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, usbc_ppc_drv, USBC_PPC_DRV)
 
 #define K_SYSCALL_DRIVER_TCPC(ptr, op) K_SYSCALL_DRIVER_GEN(ptr, op, tcpc, TCPC)
 

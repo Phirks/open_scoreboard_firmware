@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.99-cs1/nrf/subsys/bluetooth
+# Install script for directory: C:/ncs/v2.6.0/nrf/subsys/bluetooth
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

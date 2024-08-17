@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.99-cs1/nrf/subsys
+# Install script for directory: C:/ncs/v2.6.0/nrf/subsys
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -80,10 +80,5 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
   include("C:/Scoreboard/scoreboard_firmware/build/modules/nrf/subsys/partition_manager/cmake_install.cmake")
-endif()
-
-if(NOT CMAKE_INSTALL_LOCAL_ONLY)
-  # Include the install script for the subdirectory.
-  include("C:/Scoreboard/scoreboard_firmware/build/modules/nrf/subsys/suit/cmake_install.cmake")
 endif()
 

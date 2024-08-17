@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.99-cs1/nrf/drivers
+# Install script for directory: C:/ncs/v2.6.0/nrf/drivers
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -42,7 +42,6 @@ if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/nrf/drivers/hw_cc3xx/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/nrf/drivers/entropy/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/nrf/drivers/serial/cmake_install.cmake")
-  include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/modules/nrf/drivers/flash/cmake_install.cmake")
 
 endif()
 

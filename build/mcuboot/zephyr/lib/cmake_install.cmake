@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.99-cs1/zephyr/lib
+# Install script for directory: C:/ncs/v2.6.0/zephyr/lib
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -43,10 +43,7 @@ if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/zephyr/lib/libc/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/zephyr/lib/posix/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/zephyr/lib/hash/cmake_install.cmake")
-  include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/zephyr/lib/heap/cmake_install.cmake")
-  include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/zephyr/lib/mem_blocks/cmake_install.cmake")
   include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/zephyr/lib/os/cmake_install.cmake")
-  include("C:/Scoreboard/scoreboard_firmware/build/mcuboot/zephyr/lib/utils/cmake_install.cmake")
 
 endif()
 

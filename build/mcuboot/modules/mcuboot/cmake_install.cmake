@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.99-cs1/nrf/modules/mcuboot
+# Install script for directory: C:/ncs/v2.6.0/nrf/modules/mcuboot
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

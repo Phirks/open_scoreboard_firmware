@@ -86,9 +86,12 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #define STACK_SIZE 1024 // Define the stack size for your thread
 
 K_THREAD_STACK_DEFINE(button_stack, STACK_SIZE);
+K_THREAD_STACK_DEFINE(animation_stack, STACK_SIZE);
 
 static struct k_work button_work;
 static struct k_work_q work_queue;
+static struct k_work animation_work;
+static struct k_work_q work_queue2;
 
 static const struct gpio_dt_spec piezo = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), piezo_pin_gpios);
 
@@ -129,62 +132,76 @@ static const struct pwm_dt_spec br2 = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_br2));
 #define PRODUCER_THREAD_PRIORITY 6
 #define CONSUMER_THREAD_PRIORITY 7
 
-char mode = 0x00;
+uint8_t leftScore = 0x00;
+uint8_t oldLeftScore = 0x00;
 
-int militaryTime = 0;
-int alarmOn = 0;
-int hour = 0;
-int minute = 0;
-int second = 0;
-int alarmHour = 0;
-int alarmMinute = 0;
+uint8_t rightScore = 0x00;
+uint8_t oldRightScore = 0x00;
 
-int timerMinutes = 0;
-int timerSeconds = 0;
-int timerStarted = 0;
+uint8_t mode = 0x00;
+uint8_t oldMode = 0x00;
 
-int leftScore = 00;
-int leftColor[3] = {255, 0, 0};
-int rightScore = 00;
-int rightColor[3] = {0, 0, 255};
-int clockColor[3] = {255, 0, 0};
-int alarmColor[3] = {0, 255, 0};
+uint8_t animationPlaying = 0x00;
+uint8_t oldAnimationPlaying = 0x00;
 
-char hexCache1 = 0x00;
-char hexCache2 = 0x00;
+uint8_t militaryTime = 0x00;
+uint8_t oldMilitaryTime = 0x00;
+
+uint8_t alarmOn = 0x00;
+uint8_t oldAlarmOn = 0x00;
+
+uint8_t hour = 0x00;
+uint8_t minute = 0x00;
+uint8_t second = 0x00;
+
+uint8_t alarmHour = 0x00;
+uint8_t alarmMinute = 0x00;
+uint8_t alarmChanged = 0x00;
+
+uint8_t timerMinutes = 0x00;
+uint8_t timerSeconds = 0x00;
+uint8_t timerChanged = 0x00;
+
+uint8_t timerStarted = 0x00;
+uint8_t oldTimerStarted = 0x00;
+
+uint8_t leftColor[3] = {0xFF, 0x00, 0x00};
+uint8_t oldLeftColor0 = 0xFF;
+uint8_t oldLeftColor1 = 0x00;
+uint8_t oldLeftColor2 = 0x00;
+
+uint8_t rightColor[3] = {0x00, 0x00, 0xFF};
+uint8_t oldRightColor0 = 0x00;
+uint8_t oldRightColor1 = 0x00;
+uint8_t oldRightColor2 = 0xFF;
+
+uint8_t clockColor[3] = {0xFF, 0x00, 0x00};
+uint8_t oldClockColor0 = 0xFF;
+uint8_t oldClockColor1 = 0x00;
+uint8_t oldClockColor2 = 0x00;
+
+uint8_t alarmColor[3] = {0x00, 0xFF, 0x00};
+uint8_t oldAlarmColor0 = 0x00;
+uint8_t oldAlarmColor1 = 0xFF;
+uint8_t oldAlarmColor2 = 0x00;
+
+uint8_t timerColor[3] = {0xFF, 0xFF, 0xFF};
+uint8_t oldTimerColor0 = 0xFF;
+uint8_t oldTimerColor1 = 0xFF;
+uint8_t oldTimerColor2 = 0xFF;
+
+uint8_t hexCache1 = 0x00;
+uint8_t oldHexCache1 = 0x00;
+
+uint8_t hexCache2 = 0x00;
+uint8_t oldHexCache2 = 0x00;
 
 static struct k_timer timer0;
 static struct k_timer timer4;
 
-uint8_t oldMode = NULL;
-uint8_t oldHour = NULL;
-uint8_t oldMinute = NULL;
-uint8_t oldSecond = NULL;
-uint8_t oldTimerMinutes = NULL;
-uint8_t oldTimerSeconds = NULL;
-uint8_t oldLeftScore = NULL;
-uint8_t oldLeftColor0 = NULL;
-uint8_t oldLeftColor1 = NULL;
-uint8_t oldLeftColor2 = NULL;
-uint8_t oldRightScore = NULL;
-uint8_t oldRightColor0 = NULL;
-uint8_t oldRightColor1 = NULL;
-uint8_t oldRightColor2 = NULL;
-uint8_t oldClockColor0 = NULL;
-uint8_t oldClockColor1 = NULL;
-uint8_t oldClockColor2 = NULL;
-uint8_t oldAlarmColor0 = NULL;
-uint8_t oldAlarmColor1 = NULL;
-uint8_t oldAlarmColor2 = NULL;
-uint8_t oldHexCache1 = NULL;
-uint8_t oldHexCache2 = NULL;
-uint8_t oldTimerStarted = NULL;
-uint8_t oldAlarmHour = NULL;
-uint8_t oldAlarmMinute = NULL;
-uint8_t oldMilitaryTime = NULL;
-uint8_t oldAlarmOn = NULL;
-
 bool buttonLockout = false;
+int animationQueue = 0x00;
+int nextMode = 0x00;
 
 /* Copyright (c) 2009 Nordic Semiconductor. All Rights Reserved.
  *
@@ -516,6 +533,17 @@ static void display_time()
 				displayHour = 12;
 			}
 		}
+		else
+		{
+			if (hour == 0)
+			{
+				displayHour = 12;
+			}
+			else
+			{
+				displayHour = hour;
+			}
+		}
 	}
 	else
 	{
@@ -553,11 +581,11 @@ static void display_alarm()
 	set_raw(4, 0b00000000, alarmColor[0] != 0, alarmColor[1] != 0, alarmColor[2] != 0);
 	if (militaryTime == 0 && alarmHour > 11)
 	{
-		set_raw(5, BIT(2) | alarmOn * BIT(1),  alarmColor[0] != 0, alarmColor[2] != 0, alarmColor[1] != 0);
+		set_raw(5, BIT(2) | alarmOn * BIT(1), alarmColor[0] != 0, alarmColor[2] != 0, alarmColor[1] != 0);
 	}
 	else
 	{
-		set_raw(5, alarmOn * BIT(1),  alarmColor[0] != 0, alarmColor[2] != 0, alarmColor[1] != 0);
+		set_raw(5, alarmOn * BIT(1), alarmColor[0] != 0, alarmColor[2] != 0, alarmColor[1] != 0);
 	}
 	set_digit(0, displayAlarmHour / 10, alarmColor[0], alarmColor[1], alarmColor[2]);
 	set_digit(1, displayAlarmHour % 10, alarmColor[0], alarmColor[1], alarmColor[2]);
@@ -654,6 +682,12 @@ void display_score()
 	set_digit(2, rightScore / 10 % 10, rightColor[0], rightColor[1], rightColor[2]);
 	set_digit(3, rightScore % 10, rightColor[0], rightColor[1], rightColor[2]);
 }
+
+void showAnimation(uint8_t animation)
+{
+	animationQueue = animation;
+	k_work_submit_to_queue(&work_queue2, &animation_work);
+}
 void display_off()
 {
 	set_raw(0, 0b00000000, 0, 0, 0);
@@ -716,8 +750,8 @@ void display_raw()
 	set_raw(1, 0b01110011, 0, 255, 0);
 	set_raw(2, 0b01111001, 0, 255, 0);
 	set_raw(3, 0b01010100, 0, 255, 0);
-	set_digit(4, 0b00000000, 0, 0, 0);
-	set_digit(5, 0b00000000, 0, 0, 0);
+	set_raw(4, 0b00000000, 0, 0, 0);
+	set_raw(5, 0b00000000, 0, 0, 0);
 }
 
 static K_SEM_DEFINE(ble_init_ok, 0, 1);
@@ -900,16 +934,28 @@ static void bt_receive_cb(struct bt_conn *conn, const uint8_t *const data,
 	switch (data[0])
 	{
 	case 0x00: // left++
-		leftScore++;
+		if (leftScore < 199)
+		{
+			leftScore++;
+		}
 		break;
 	case 0x01: // left--
-		leftScore--;
+		if (leftScore > 0)
+		{
+			leftScore--;
+		}
 		break;
 	case 0x02: // right++
-		rightScore++;
+		if (rightScore < 199)
+		{
+			rightScore++;
+		}
 		break;
 	case 0x03: // right--
-		rightScore--;
+		if (rightScore > 0)
+		{
+			rightScore--;
+		}
 		break;
 	case 0x04: // resetScores
 		rightScore = 0;
@@ -1049,8 +1095,7 @@ void button_changed(uint32_t button_state, uint32_t has_changed)
 /** .. include_startingpoint_pkg_def_launchapp_rst */
 /* Package: no.nordicsemi.android.nrftoolbox */
 static const uint8_t android_pkg_name[] = {
-	'n', 'o', '.', 'n', 'o', 'r', 'd', 'i', 'c', 's', 'e', 'm', 'i', '.', 'a', 'n', 'd', 'r',
-	'o', 'i', 'd', '.', 'n', 'r', 'f', 't', 'o', 'o', 'l', 'b', 'o', 'x'};
+	'c', 'o', 'm', '.', 'p', 'h', 'i', 'r', 'k', 's', '.', 'a', 'o', 'r', 'a'};
 
 /* URI nrf-toolbox://main/ */
 static const uint8_t universal_link[] = {
@@ -1090,11 +1135,185 @@ void button_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t
 		k_work_submit_to_queue(&work_queue, &button_work);
 	}
 }
+static void animation_work_handler(struct k_work *work)
+{
+	animationPlaying = 0x01;
+	switch (animationQueue)
+	{
+	case 0x00: // scoreboard mode
+		set_raw(0, 0b01101101, leftColor[0], leftColor[1], leftColor[2]);
+		set_raw(1, 0b01011000, leftColor[0], leftColor[1], leftColor[2]);
+		set_raw(2, 0b01011100, rightColor[0], rightColor[1], rightColor[2]);
+		set_raw(3, 0b01010000, rightColor[0], rightColor[1], rightColor[2]);
+		set_raw(4, 0b00000000, 0, 0, 0);
+		set_raw(5, 0b00000000, 0, 0, 0);
+		for (int i = 0; i < 100; i++)
+		{
+			k_msleep(10);
+			if (animationQueue != 0x00)
+			{
+				animationPlaying = 0x00;
+				return;
+			}
+		}
+		break;
+	case 0x01: // clock mode
+		set_raw(0, 0b00111001, clockColor[0], clockColor[1], clockColor[2]);
+		set_raw(1, 0b00110000, clockColor[0], clockColor[1], clockColor[2]);
+		set_raw(2, 0b01011100, clockColor[0], clockColor[1], clockColor[2]);
+		set_raw(3, 0b01011000, clockColor[0], clockColor[1], clockColor[2]);
+		set_raw(4, 0b00000000, clockColor[0] != 0, clockColor[1] != 0, clockColor[2] != 0);
+		set_raw(5, 0b00000000, clockColor[0], clockColor[2], clockColor[1]);
+		k_msleep(10);
+		for (int i = 0; i < 100; i++)
+		{
+			k_msleep(10);
+			if (animationQueue != 0x01)
+			{
+				animationPlaying = 0x00;
+				return;
+			}
+		}
+		break;
+	case 0x02: // hex mode
+		set_raw(0, 0b00111111, 0, 255, 0);
+		set_raw(1, 0b01110011, 0, 255, 0);
+		set_raw(2, 0b01111001, 0, 255, 0);
+		set_raw(3, 0b01010100, 0, 255, 0);
+		set_raw(4, 0b00000000, 0, 0, 0);
+		set_raw(5, 0b00000000, 0, 0, 0);
+		k_msleep(10);
+		for (int i = 0; i < 100; i++)
+		{
+			k_msleep(10);
+			if (animationQueue != 0x02)
+			{
+				animationPlaying = 0x00;
+				return;
+			}
+		}
+		break;
+	case 0x03: // raw mode
+		set_raw(0, 0b00111111, 0, 255, 0);
+		set_raw(1, 0b01110011, 0, 255, 0);
+		set_raw(2, 0b01111001, 0, 255, 0);
+		set_raw(3, 0b01010100, 0, 255, 0);
+		set_raw(4, 0b00000000, 0, 0, 0);
+		set_raw(5, 0b00000000, 0, 0, 0);
+		k_msleep(10);
+		for (int i = 0; i < 100; i++)
+		{
+			k_msleep(10);
+			if (animationQueue != 0x03)
+			{
+				animationPlaying = 0x00;
+				return;
+			}
+		}
+		break;
+	case 0x04: // timer mode
+		set_raw(0, 0b00111001, timerColor[0], timerColor[1], timerColor[2]);
+		set_raw(1, 0b01111000, timerColor[0], timerColor[1], timerColor[2]);
+		set_raw(2, 0b01011110, timerColor[0], timerColor[1], timerColor[2]);
+		set_raw(3, 0b01010100, timerColor[0], timerColor[1], timerColor[2]);
+		set_raw(4, 0b00000000, timerColor[0] != 0, timerColor[1] != 0, timerColor[2] != 0);
+		set_raw(5, 0b00000000, timerColor[0], timerColor[2], timerColor[1]);
+		k_msleep(10);
+		for (int i = 0; i < 100; i++)
+		{
+			k_msleep(10);
+			if (animationQueue != 0x04)
+			{
+				animationPlaying = 0x00;
+				return;
+			}
+		}
+		break;
+	case 0x05: // alarm mode
+		set_raw(0, 0b01110111, alarmColor[0], alarmColor[1], alarmColor[2]);
+		set_raw(1, 0b00111000, alarmColor[0], alarmColor[1], alarmColor[2]);
+		set_raw(2, 0b01110111, alarmColor[0], alarmColor[1], alarmColor[2]);
+		set_raw(3, 0b01010000, alarmColor[0], alarmColor[1], alarmColor[2]);
+		set_raw(4, 0b00000000, 0, 0, 0);
+		set_raw(5, 0b00000000, 0, 0, 0);
+		k_msleep(10);
+		for (int i = 0; i < 100; i++)
+		{
+			k_msleep(10);
+			if (animationQueue != 0x05)
+			{
+				animationPlaying = 0x00;
+				return;
+			}
+		}
+		break;
+	case 0x06: // off mode
+		set_raw(0, 0b00111111, 0, 255, 0);
+		set_raw(1, 0b01110011, 0, 255, 0);
+		set_raw(2, 0b01111001, 0, 255, 0);
+		set_raw(3, 0b01010100, 0, 255, 0);
+		set_raw(4, 0b00000000, 0, 0, 0);
+		set_raw(5, 0b00000000, 0, 0, 0);
+		k_msleep(10);
+		for (int i = 0; i < 100; i++)
+		{
+			k_msleep(10);
+			if (animationQueue != 0x06)
+			{
+				animationPlaying = 0x00;
+				return;
+			}
+		}
+		break;
+	case 0x07: // animation mode
+		set_raw(0, 0b00111111, 0, 255, 0);
+		set_raw(1, 0b01110011, 0, 255, 0);
+		set_raw(2, 0b01111001, 0, 255, 0);
+		set_raw(3, 0b01010100, 0, 255, 0);
+		set_raw(4, 0b00000000, 0, 0, 0);
+		set_raw(5, 0b00000000, 0, 0, 0);
+		k_msleep(10);
+		for (int i = 0; i < 100; i++)
+		{
+			k_msleep(10);
+			if (animationQueue != 0x07)
+			{
+				animationPlaying = 0x00;
+				return;
+			}
+		}
+		break;
+	case 0xFF: // startup splash
+		set_raw(0, 0b00111111, 0, 255, 0);
+		set_raw(1, 0b01110011, 0, 255, 0);
+		set_raw(2, 0b01111001, 0, 255, 0);
+		set_raw(3, 0b01010100, 0, 255, 0);
+		set_raw(4, 0b00000000, 0, 0, 0);
+		set_raw(5, 0b00000000, 0, 0, 0);
+		k_msleep(10);
+		for (int i = 0; i < 100; i++)
+		{
+			k_msleep(10);
+			if (animationQueue != 0xFF)
+			{
+				animationPlaying = 0x00;
+				return;
+			}
+		}
+		break;
+
+	default:
+		break;
+	}
+	// animationQueue = 0x00;
+	animationPlaying = 0x00;
+}
 
 static void button_work_handler(struct k_work *work)
 {
 	buttonLockout = true;
 	bool pinArray[3] = {gpio_pin_get_dt(&left_button), gpio_pin_get_dt(&right_button), gpio_pin_get_dt(&mode_button)};
+	bool originalPinArray[3] = {pinArray[0], pinArray[1], pinArray[2]};
 	int buttonTimeIter = 0;
 	int buttonTimePollingRateMS = 10;
 	int buttonTimeShortpress = 50;
@@ -1102,8 +1321,10 @@ static void button_work_handler(struct k_work *work)
 	int buttonTimeLongpressRepeat = 500;
 	int buttonTimeLongpressAcceleration = 50;
 	int buttonTimeLongpressRepeatMin = 100;
+	bool validPinArray[3] = {false, false, false};
 	while (1) // wait until all buttons are no longer pushed or a button/combination of buttons has been longpressed;
 	{
+
 		bool newPinArray[3] = {gpio_pin_get_dt(&left_button), gpio_pin_get_dt(&right_button), gpio_pin_get_dt(&mode_button)};
 		if (!newPinArray[0] && !newPinArray[1] && !newPinArray[2])
 		{
@@ -1115,9 +1336,11 @@ static void button_work_handler(struct k_work *work)
 		}
 		else
 		{
-			if(buttonTimeIter >= buttonTimeShortpress)
+			if (buttonTimeIter >= buttonTimeShortpress)
 			{
-				break;
+				validPinArray[0] = pinArray[0];
+				validPinArray[1] = pinArray[1];
+				validPinArray[2] = pinArray[2];
 			}
 			pinArray[0] = newPinArray[0];
 			pinArray[1] = newPinArray[1];
@@ -1131,15 +1354,47 @@ static void button_work_handler(struct k_work *work)
 		k_msleep(buttonTimePollingRateMS);
 	}
 	// now pinArray should have the button combination debounced and buttonTimeIter should have the time in ms the button was pushed
-	switch (mode)
+	if (buttonTimeIter < buttonTimeShortpress && (validPinArray[0] || validPinArray[1] || validPinArray[2]))
 	{
-	case 0x00:
-		if (buttonTimeIter < buttonTimeShortpress)
+		pinArray[0] = validPinArray[0];
+		pinArray[1] = validPinArray[1];
+		pinArray[2] = validPinArray[2];
+		buttonTimeIter = buttonTimeShortpress;
+	}
+	if (buttonTimeIter < buttonTimeShortpress)
+	{
+		buttonLockout = false;
+		return;
+	}
+
+	if (originalPinArray[0])
+	{
+		if (!pinArray[0])
 		{
 			buttonLockout = false;
 			return;
 		}
-		else if (buttonTimeIter < buttonTimeLongpress)
+	}
+	if (originalPinArray[1])
+	{
+		if (!pinArray[1])
+		{
+			buttonLockout = false;
+			return;
+		}
+	}
+	if (originalPinArray[2])
+	{
+		if (!pinArray[2])
+		{
+			buttonLockout = false;
+			return;
+		}
+	}
+	switch (mode)
+	{
+	case 0x00:
+		if (buttonTimeIter < buttonTimeLongpress)
 		{
 			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button shortpress
 			{
@@ -1158,6 +1413,7 @@ static void button_work_handler(struct k_work *work)
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
 			{
 				mode = 0x04;
+				showAnimation(0x04);
 			}
 			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
 			{
@@ -1227,12 +1483,7 @@ static void button_work_handler(struct k_work *work)
 		break;
 
 	case 0x04: // timer mode
-		if (buttonTimeIter < buttonTimeShortpress)
-		{
-			buttonLockout = false;
-			return;
-		}
-		else if (buttonTimeIter < buttonTimeLongpress)
+		if (buttonTimeIter < buttonTimeLongpress)
 		{
 			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button shortpress
 			{
@@ -1252,7 +1503,7 @@ static void button_work_handler(struct k_work *work)
 					{
 						timerSeconds = timerSeconds + 1;
 					}
-					else if(timerMinutes<199)
+					else if (timerMinutes < 199)
 					{
 						timerSeconds = 0;
 						timerMinutes = timerMinutes + 1;
@@ -1261,19 +1512,23 @@ static void button_work_handler(struct k_work *work)
 			}
 			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
 			{
-				if(timerStarted==0 || timerStarted==2){
-					timerStarted=3;
+				if (timerStarted == 0 || timerStarted == 2)
+				{
+					timerStarted = 3;
 				}
-				else if(timerStarted==1 || timerStarted==3){
-					timerStarted=2;
-				
-				}else{
-					timerStarted=2;
+				else if (timerStarted == 1 || timerStarted == 3)
+				{
+					timerStarted = 2;
+				}
+				else
+				{
+					timerStarted = 2;
 				}
 			}
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
 			{
 				mode = 0x01;
+				showAnimation(0x01);
 			}
 			else
 			{
@@ -1291,10 +1546,11 @@ static void button_work_handler(struct k_work *work)
 					{
 						if (timerMinutes > 0)
 						{
-							timerMinutes = timerMinutes -1;
+							timerMinutes = timerMinutes - 1;
 						}
-						else{
-							timerSeconds=0;
+						else
+						{
+							timerSeconds = 0;
 						}
 					}
 					k_msleep(buttonTimeLongpressRepeat);
@@ -1315,7 +1571,7 @@ static void button_work_handler(struct k_work *work)
 						{
 							timerSeconds = timerSeconds - 1;
 						}
-						else if(timerMinutes>0)
+						else if (timerMinutes > 0)
 						{
 							timerSeconds = 59;
 							timerMinutes = timerMinutes - 1;
@@ -1331,16 +1587,18 @@ static void button_work_handler(struct k_work *work)
 			}
 			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
 			{
-				if(timerStarted==0 || timerStarted==2){
-					timerStarted=3;
+				if (timerStarted == 0 || timerStarted == 2)
+				{
+					timerStarted = 3;
 				}
-				else if(timerStarted==1 || timerStarted==3){
-					timerStarted=2;
-				
-				}else{
-					timerStarted=2;
+				else if (timerStarted == 1 || timerStarted == 3)
+				{
+					timerStarted = 2;
 				}
-
+				else
+				{
+					timerStarted = 2;
+				}
 			}
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button longpress
 			{
@@ -1359,12 +1617,7 @@ static void button_work_handler(struct k_work *work)
 		}
 		break;
 	case 0x01: // clock mode
-		if (buttonTimeIter < buttonTimeShortpress)
-		{
-			buttonLockout = false;
-			return;
-		}
-		else if (buttonTimeIter < buttonTimeLongpress)
+		if (buttonTimeIter < buttonTimeLongpress)
 		{
 			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button shortpress
 			{
@@ -1398,7 +1651,7 @@ static void button_work_handler(struct k_work *work)
 			}
 			else if (pinArray[0] == true && pinArray[1] == true && pinArray[2] == false) // right and left button longpress
 			{
-								if (militaryTime == 0)
+				if (militaryTime == 0)
 				{
 					militaryTime = 1;
 				}
@@ -1410,6 +1663,7 @@ static void button_work_handler(struct k_work *work)
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
 			{
 				mode = 0x05;
+				showAnimation(0x05);
 			}
 			else
 			{
@@ -1425,7 +1679,7 @@ static void button_work_handler(struct k_work *work)
 				while (gpio_pin_get_dt(&left_button) && !gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
 				{
 					second = 0;
-					 if (hour > 0)
+					if (hour > 0)
 					{
 						hour--;
 					}
@@ -1450,7 +1704,7 @@ static void button_work_handler(struct k_work *work)
 					{
 						minute--;
 					}
-					else if (alarmHour >0)
+					else if (alarmHour > 0)
 					{
 						hour--;
 						minute = 0;
@@ -1497,12 +1751,7 @@ static void button_work_handler(struct k_work *work)
 		break;
 
 	case 0x05: // alarm set mode
-		if (buttonTimeIter < buttonTimeShortpress)
-		{
-			buttonLockout = false;
-			return;
-		}
-		else if (buttonTimeIter < buttonTimeLongpress)
+		if (buttonTimeIter < buttonTimeLongpress)
 		{
 			if (pinArray[0] == true && pinArray[1] == false && pinArray[2] == false) // left button shortpress
 			{
@@ -1546,6 +1795,7 @@ static void button_work_handler(struct k_work *work)
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
 			{
 				mode = 0x00;
+				showAnimation(0x00);
 			}
 			else
 			{
@@ -1559,7 +1809,7 @@ static void button_work_handler(struct k_work *work)
 			{
 				while (gpio_pin_get_dt(&left_button) && !gpio_pin_get_dt(&right_button) && !gpio_pin_get_dt(&mode_button))
 				{
-					 if (alarmHour>0)
+					if (alarmHour > 0)
 					{
 						alarmHour--;
 					}
@@ -1583,7 +1833,7 @@ static void button_work_handler(struct k_work *work)
 					{
 						alarmMinute--;
 					}
-					else if (alarmHour>0)
+					else if (alarmHour > 0)
 					{
 						alarmHour--;
 						alarmMinute = 59;
@@ -1698,6 +1948,11 @@ static void configure_gpio(void)
 					   PRIORITY, NULL);
 
 	k_work_init(&button_work, button_work_handler);
+	k_work_queue_start(&work_queue2, animation_stack, K_THREAD_STACK_SIZEOF(animation_stack),
+					   PRIORITY, NULL);
+
+	k_work_init(&animation_work, animation_work_handler);
+
 	// #ifdef CONFIG_BT_NUS_SECURITY_ENABLED
 	// 	err = dk_buttons_init(button_changed);
 	// 	if (err) {
@@ -1733,46 +1988,172 @@ static void configure_pwm()
 	pwmN_set_duty_cycle(3, 0);
 }
 
-static void bt_tx_manager()
+static uint8_t dataUpdate(uint8_t dataByte, uint8_t newValue, uint8_t oldValue)
 {
 	uint8_t buf[2];
+	buf[0] = dataByte;
+	buf[1] = newValue;
+	if (!bt_nus_send(NULL, buf, 2))
+	{
+		return newValue;
+	}
+	else
+	{
+		return oldValue;
+	}
+}
 
+static bool bt_tx_manager()
+{
 	if (oldRightScore != rightScore)
 	{
-		buf[0] = 0x00;
-		buf[1] = rightScore;
-		if (!bt_nus_send(NULL, buf, 2))
-		{
-			oldRightScore = rightScore;
-		}
+		oldRightScore = dataUpdate(0x00, rightScore, oldRightScore);
 	}
-
-	if (oldLeftScore != leftScore)
+	else if (oldLeftScore != leftScore)
 	{
-		buf[0] = 0x01;
-		buf[1] = leftScore;
-		if (!bt_nus_send(NULL, buf, 2))
+		oldLeftScore = dataUpdate(0x01, leftScore, oldLeftScore);
+	}
+	else if (oldMode != mode)
+	{
+		oldMode = dataUpdate(0x02, mode, oldMode);
+	}
+	else if (oldAnimationPlaying != animationPlaying)
+	{
+		oldAnimationPlaying = dataUpdate(0x03, animationPlaying, oldAnimationPlaying);
+	}
+	else if (oldMilitaryTime != militaryTime)
+	{
+		oldMilitaryTime = dataUpdate(0x04, militaryTime, oldMilitaryTime);
+	}
+	else if (oldAlarmOn != alarmOn)
+	{
+		oldAlarmOn = dataUpdate(0x05, alarmOn, oldAlarmOn);
+	}
+	else if (alarmChanged != 0)
+	{
+		alarmChanged = dataUpdate(0x06, alarmHour, 61);
+		if (alarmChanged > 59)
 		{
-			oldLeftScore = leftScore;
+			alarmChanged = 1;
+		}
+		else
+		{
+			alarmChanged = dataUpdate(0x07, alarmMinute, 61);
+			if (alarmChanged > 60)
+			{
+				alarmChanged = 1;
+			}
+			else
+			{
+				alarmChanged = 0;
+			}
 		}
 	}
-
-	// uint8_t oldMode=NULL;
-	// uint8_t oldHour=NULL;
-	// uint8_t oldMinute=NULL;
-	// uint8_t oldSecond=NULL;
-	// uint8_t oldTimerMinutes=NULL;
-	// uint8_t oldTimerSeconds=NULL;
-	// uint8_t oldLeftScore=NULL;
-	// uint8_t oldLeftColor0=NULL;
-	// uint8_t oldLeftColor1=NULL;
-	// uint8_t oldLeftColor2=NULL;
-
-	// uint8_t oldRightColor0=NULL;
-	// uint8_t oldRightColor1=NULL;
-	// uint8_t oldRightColor2=NULL;
-	// uint8_t oldHexCache1=NULL;
-	// uint8_t oldHexCache2=NULL;
+	else if (timerChanged != 0)
+	{
+		timerChanged = dataUpdate(0x08, timerMinutes, 201);
+		if (timerChanged > 200)
+		{
+			timerChanged = 1;
+		}
+		else
+		{
+			timerChanged = dataUpdate(0x09, timerSeconds, 201);
+			if (timerChanged > 59)
+			{
+				timerChanged = 1;
+			}
+			else
+			{
+				timerChanged = 0;
+			}
+		}
+	}
+	else if (oldTimerStarted != timerStarted)
+	{
+		oldTimerStarted = dataUpdate(0x0A, timerStarted, oldTimerStarted);
+	}
+	else if (oldLeftColor0 != leftColor[0])
+	{
+		oldLeftColor0 = dataUpdate(0x0B, leftColor[0], oldLeftColor0);
+	}
+	else if (oldLeftColor1 != leftColor[1])
+	{
+		oldLeftColor1 = dataUpdate(0x0C, leftColor[1], oldLeftColor1);
+	}
+	else if (oldLeftColor2 != leftColor[2])
+	{
+		oldLeftColor2 = dataUpdate(0x0D, leftColor[2], oldLeftColor2);
+	}
+	else if (oldLeftColor0 != leftColor[0])
+	{
+		oldLeftColor0 = dataUpdate(0x0B, leftColor[0], oldLeftColor0);
+	}
+	else if (oldLeftColor1 != leftColor[1])
+	{
+		oldLeftColor1 = dataUpdate(0x0C, leftColor[1], oldLeftColor1);
+	}
+	else if (oldLeftColor2 != leftColor[2])
+	{
+		oldLeftColor2 = dataUpdate(0x0D, leftColor[2], oldLeftColor2);
+	}
+	else if (oldRightColor0 != rightColor[0])
+	{
+		oldRightColor0 = dataUpdate(0x0E, rightColor[0], oldRightColor0);
+	}
+	else if (oldRightColor1 != rightColor[1])
+	{
+		oldRightColor1 = dataUpdate(0x0F, rightColor[1], oldRightColor1);
+	}
+	else if (oldLeftColor2 != leftColor[2])
+	{
+		oldRightColor2 = dataUpdate(0x10, rightColor[2], oldRightColor2);
+	}
+	else if (oldClockColor0 != clockColor[0])
+	{
+		oldClockColor0 = dataUpdate(0x11, clockColor[0], oldClockColor0);
+	}
+	else if (oldClockColor1 != clockColor[1])
+	{
+		oldClockColor1 = dataUpdate(0x12, clockColor[1], oldClockColor1);
+	}
+	else if (oldClockColor2 != clockColor[2])
+	{
+		oldClockColor2 = dataUpdate(0x13, clockColor[2], oldClockColor2);
+	}
+	else if (oldAlarmColor0 != alarmColor[0])
+	{
+		oldAlarmColor0 = dataUpdate(0x14, alarmColor[0], oldAlarmColor0);
+	}
+	else if (oldAlarmColor1 != alarmColor[1])
+	{
+		oldAlarmColor1 = dataUpdate(0x15, alarmColor[1], oldAlarmColor1);
+	}
+	else if (oldAlarmColor2 != alarmColor[2])
+	{
+		oldAlarmColor2 = dataUpdate(0x16, alarmColor[2], oldAlarmColor2);
+	}
+	else if (oldTimerColor0 != timerColor[0])
+	{
+		oldTimerColor0 = dataUpdate(0x17, timerColor[0], oldTimerColor0);
+	}
+	else if (oldTimerColor1 != timerColor[1])
+	{
+		oldTimerColor1 = dataUpdate(0x18, timerColor[1], oldTimerColor1);
+	}
+	else if (oldTimerColor2 != timerColor[2])
+	{
+		oldTimerColor2 = dataUpdate(0x19, timerColor[2], oldTimerColor2);
+	}
+	else if (oldTimerColor2 != timerColor[2])
+	{
+		oldTimerColor2 = dataUpdate(0x19, timerColor[2], oldTimerColor2);
+	}
+	else
+	{
+		return false;
+	}
+	return true;
 }
 
 int main(void)
@@ -1886,7 +2267,6 @@ int main(void)
 	}
 
 	k_timer_start(&timer0, K_MSEC(1000), K_MSEC(1000));
-
 	for (;;)
 	{
 		if (timerStarted == 3)
@@ -1899,31 +2279,35 @@ int main(void)
 			k_timer_stop(&timer4);
 			timerStarted = 0;
 		}
-		switch (mode)
+		if (animationPlaying == 0)
 		{
-		case 0x00:
-			display_score();
-			break;
-		case 0x01:
-			display_time();
-			break;
-		case 0x02:
-			display_hex(hexCache1, hexCache2);
-			break;
-		case 0x03:
-			display_raw();
-			break;
-		case 0x04:
-			display_timer();
-			break;
-		case 0x05:
-			display_alarm();
-			break;
-		case 0x06:
-			display_off();
-			break;
-		default:
+			switch (mode)
+			{
+			case 0x00:
+				display_score();
+				break;
+			case 0x01:
+				display_time();
+				break;
+			case 0x02:
+				display_hex(hexCache1, hexCache2);
+				break;
+			case 0x03:
+				display_raw();
+				break;
+			case 0x04:
+				display_timer();
+				break;
+			case 0x05:
+				display_alarm();
+				break;
+			case 0x06:
+				display_off();
+				break;
+			default:
+			}
 		}
+
 		bt_tx_manager();
 		gpio_pin_set_dt(&segment_a, 1);
 		pwm_set_dt(&rl1, PWM_PERIOD_NS, (disp[0][0][0]) * 100);

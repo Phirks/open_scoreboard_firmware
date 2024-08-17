@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.99-cs1/modules/hal/cmsis/CMSIS/Core
+# Install script for directory: C:/ncs/v2.6.0/modules/hal/cmsis/CMSIS/Core
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

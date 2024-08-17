@@ -33,10 +33,10 @@
     ],
     [
         [
-            "int __posix_clock_get_base",
+            "int clock_gettime",
             "clockid_t clock_id, struct timespec *ts"
         ],
-        "posix_clock.h",
+        "time.h",
         true
     ],
     [
@@ -115,14 +115,6 @@
         [
             "uint32_t log_filter_set",
             "struct log_backend const *const backend,\n\t\t\t\t  uint32_t domain_id, int16_t source_id,\n\t\t\t\t  uint32_t level"
-        ],
-        "log_ctrl.h",
-        true
-    ],
-    [
-        [
-            "uint32_t log_frontend_filter_set",
-            "int16_t source_id, uint32_t level"
         ],
         "log_ctrl.h",
         true
@@ -1154,7 +1146,7 @@
     [
         [
             "int k_pipe_put",
-            "struct k_pipe *pipe, const void *data,\n\t\t\t size_t bytes_to_write, size_t *bytes_written,\n\t\t\t size_t min_xfer, k_timeout_t timeout"
+            "struct k_pipe *pipe, void *data,\n\t\t\t size_t bytes_to_write, size_t *bytes_written,\n\t\t\t size_t min_xfer, k_timeout_t timeout"
         ],
         "kernel.h",
         true
@@ -1341,14 +1333,6 @@
             "unsigned int reason"
         ],
         "error.h",
-        false
-    ],
-    [
-        [
-            "void xtensa_user_fault",
-            "unsigned int reason"
-        ],
-        "arch.h",
         false
     ],
     [
@@ -1673,14 +1657,6 @@
     ],
     [
         [
-            "const struct device *can_get_transceiver",
-            "const struct device *dev"
-        ],
-        "can.h",
-        false
-    ],
-    [
-        [
             "int can_start",
             "const struct device *dev"
         ],
@@ -1699,14 +1675,6 @@
         [
             "int can_set_mode",
             "const struct device *dev, can_mode_t mode"
-        ],
-        "can.h",
-        false
-    ],
-    [
-        [
-            "can_mode_t can_get_mode",
-            "const struct device *dev"
         ],
         "can.h",
         false
@@ -1843,14 +1811,6 @@
         [
             "int charger_set_prop",
             "const struct device *dev, const charger_prop_t prop,\n\t\t\t       const union charger_propval *val"
-        ],
-        "charger.h",
-        false
-    ],
-    [
-        [
-            "int charger_charge_enable",
-            "const struct device *dev, const bool enable"
         ],
         "charger.h",
         false
@@ -2267,14 +2227,6 @@
         [
             "int espi_saf_flash_erase",
             "const struct device *dev,\n\t\t\t\t   struct espi_saf_packet *pckt"
-        ],
-        "espi_saf.h",
-        false
-    ],
-    [
-        [
-            "int espi_saf_flash_unsuccess",
-            "const struct device *dev,\n\t\t\t\t       struct espi_saf_packet *pckt"
         ],
         "espi_saf.h",
         false
@@ -3865,6 +3817,46 @@
     ],
     [
         [
+            "int phy_configure_link",
+            "const struct device *dev,\n\t\t\t\t enum phy_link_speed speeds"
+        ],
+        "phy.h",
+        false
+    ],
+    [
+        [
+            "int phy_get_link_state",
+            "const struct device *dev,\n\t\t\t\t struct phy_link_state *state"
+        ],
+        "phy.h",
+        false
+    ],
+    [
+        [
+            "int phy_link_callback_set",
+            "const struct device *dev,\n\t\t\t\t    phy_callback_t callback,\n\t\t\t\t    void *user_data"
+        ],
+        "phy.h",
+        false
+    ],
+    [
+        [
+            "int phy_read",
+            "const struct device *dev, uint16_t reg_addr,\n\t\t       uint32_t *value"
+        ],
+        "phy.h",
+        false
+    ],
+    [
+        [
+            "int phy_write",
+            "const struct device *dev, uint16_t reg_addr,\n\t\t\tuint32_t value"
+        ],
+        "phy.h",
+        false
+    ],
+    [
+        [
             "void *zsock_get_context_object",
             "int sock"
         ],
@@ -3955,14 +3947,6 @@
         [
             "ssize_t zsock_recvfrom",
             "int sock, void *buf, size_t max_len,\n\t\t\t\t int flags, struct sockaddr *src_addr,\n\t\t\t\t socklen_t *addrlen"
-        ],
-        "socket.h",
-        false
-    ],
-    [
-        [
-            "ssize_t zsock_recvmsg",
-            "int sock, struct msghdr *msg, int flags"
         ],
         "socket.h",
         false

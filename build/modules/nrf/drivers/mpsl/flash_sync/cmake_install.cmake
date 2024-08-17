@@ -1,4 +1,4 @@
-# Install script for directory: C:/ncs/v2.6.99-cs1/nrf/drivers/mpsl/flash_sync
+# Install script for directory: C:/ncs/v2.6.0/nrf/drivers/mpsl/flash_sync
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
