@@ -1,6 +1,6 @@
 {
     "format-version": 0,
-    "time": 1723771922,
+    "time": 1724042475,
     "files": [
         {
             "load_address": 49664,
@@ -8,15 +8,15 @@
             "type": "application",
             "board": "open_scoreboard_nrf52832",
             "soc": "nRF52832_QFAA",
-            "size": 214332,
+            "size": 214764,
             "file": "app_update.bin",
-            "modtime": 1723771921
+            "modtime": 1724042475
         }
     ],
     "name": "scoreboard_firmware",
     "firmware": {
         "zephyr": {
-            "revision": "4f3a1bda4f46ad1fac9129d67dae9e8c8c472ac3-dirty"
+            "revision": "fc458fe19a9ce5951ffa70a1b3a233c9b63a382f-dirty"
         },
         "nrf": {
             "revision": "3190fa573ff67bfb745028f203e9d0ea4144a1ce-dirty"

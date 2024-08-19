@@ -151,12 +151,15 @@ uint8_t alarmOn = 0x00;
 uint8_t oldAlarmOn = 0x00;
 
 uint8_t hour = 0x00;
+uint8_t oldHour = 0x00;
 uint8_t minute = 0x00;
+uint8_t oldMinute = 0x00;
 uint8_t second = 0x00;
 
 uint8_t alarmHour = 0x00;
+uint8_t oldAlarmHour = 0x00;
 uint8_t alarmMinute = 0x00;
-uint8_t alarmChanged = 0x00;
+uint8_t oldAlarmMinute = 0x00;
 
 uint8_t timerMinutes = 0x00;
 uint8_t timerSeconds = 0x00;
@@ -595,29 +598,29 @@ static void display_alarm()
 
 static void display_timer()
 {
-	set_digit(0, timerMinutes / 10, 128, 128, 128);
+	set_digit(0, timerMinutes / 10 % 10, 128, 128, 128);
 	set_digit(1, timerMinutes % 10, 128, 128, 128);
-	set_digit(2, timerSeconds / 10, 128, 128, 128);
+	set_digit(2, timerSeconds / 10 % 10, 128, 128, 128);
 	set_digit(3, timerSeconds % 10, 128, 128, 128);
 	set_raw(4, 0b00000000, 0, 0, 0);
 	set_raw(5, 0b00000000, 0, 0, 0);
-	if (timerSeconds > 99)
+	if (timerMinutes > 99)
 	{
-		disp[0][5][3] = rightColor[0];
-		disp[1][5][3] = rightColor[2];
-		disp[2][5][3] = rightColor[1];
-		disp[0][5][6] = rightColor[0];
-		disp[1][5][6] = rightColor[2];
-		disp[2][5][6] = rightColor[1];
+		disp[0][5][4] = timerColor[0];
+		disp[1][5][4] = timerColor[2];
+		disp[2][5][4] = timerColor[1];
+		disp[0][5][5] = timerColor[0];
+		disp[1][5][5] = timerColor[2];
+		disp[2][5][5] = timerColor[1];
 	}
 	else
 	{
-		disp[0][5][3] = 0;
-		disp[1][5][3] = 0;
-		disp[2][5][3] = 0;
-		disp[0][5][6] = 0;
-		disp[1][5][6] = 0;
-		disp[2][5][6] = 0;
+		disp[0][5][4] = 0;
+		disp[1][5][4] = 0;
+		disp[2][5][4] = 0;
+		disp[0][5][5] = 0;
+		disp[1][5][5] = 0;
+		disp[2][5][5] = 0;
 	}
 }
 
@@ -729,6 +732,7 @@ static void timer0_handler(struct k_timer *dummy)
 
 static void timer4_handler(struct k_timer *dummy)
 {
+
 	if (timerMinutes < 1 && timerSeconds < 1)
 	{
 		timerStarted = 2;
@@ -741,6 +745,10 @@ static void timer4_handler(struct k_timer *dummy)
 	else
 	{
 		timerSeconds = timerSeconds - 1;
+		if (timerSeconds % 10 == 0)
+		{
+			timerChanged = 1;
+		}
 	}
 }
 
@@ -974,7 +982,7 @@ static void bt_receive_cb(struct bt_conn *conn, const uint8_t *const data,
 	case 0x06: // setTime
 		if (len > 2)
 		{
-			timerStarted = 1;
+			// timerStarted = 1;
 
 			hour = data[1];
 			minute = data[2];
@@ -987,6 +995,7 @@ static void bt_receive_cb(struct bt_conn *conn, const uint8_t *const data,
 	case 0x08: // setTimer
 		timerMinutes = data[1];
 		timerSeconds = data[2];
+		timerChanged = 1;
 		if (timerSeconds > 59 && timerMinutes > 0)
 		{
 			timerMinutes = timerMinutes + timerSeconds / 60;
@@ -999,7 +1008,63 @@ static void bt_receive_cb(struct bt_conn *conn, const uint8_t *const data,
 	case 0x0A: // displayTimer
 		mode = 0x04;
 		break;
+	case 0x0B: // stopTimer
+		timerStarted = 2;
+		break;
+	case 0x0C: // setAlarm
+		if (alarmHour < 24)
+		{
+			alarmHour = data[1];
+		}
+		if (alarmMinute < 60)
+		{
+			alarmMinute = data[2];
+		}
+		break;
+	case 0x0D: // alarm on
+		alarmOn = 0x01;
+		break;
+	case 0x0E: // alarm off
+		alarmOn = 0x00;
+		break;
+	case 0x0F: // millitaryTime On
+		militaryTime = 0x01;
+		break;
+	case 0x10: // millitaryTime off
+		militaryTime = 0x00;
+		break;
+	case 0x11: // get all data
 
+		oldLeftScore = 0x00;
+		oldRightScore = 0x00;
+		oldMode = 0x00;
+		oldAnimationPlaying = 0x00;
+		oldMilitaryTime = 0x00;
+		oldAlarmOn = 0x00;
+		oldHour = 0x00;
+		oldMinute = 0x00;
+		oldAlarmHour = 0x00;
+		oldAlarmMinute = 0x00;
+		timerChanged = 0x01;
+		oldTimerStarted = 0x00;
+		oldLeftColor0 = 0xFF;
+		oldLeftColor1 = 0x00;
+		oldLeftColor2 = 0x00;
+		oldRightColor0 = 0x00;
+		oldRightColor1 = 0x00;
+		oldRightColor2 = 0xFF;
+		oldClockColor0 = 0xFF;
+		oldClockColor1 = 0x00;
+		oldClockColor2 = 0x00;
+		oldAlarmColor0 = 0x00;
+		oldAlarmColor1 = 0xFF;
+		oldAlarmColor2 = 0x00;
+		oldTimerColor0 = 0xFF;
+		oldTimerColor1 = 0xFF;
+		oldTimerColor2 = 0xFF;
+		oldHexCache1 = 0x00;
+		oldHexCache2 = 0x00;
+		break;
 	default:
 	}
 	int err;
@@ -1492,6 +1557,7 @@ static void button_work_handler(struct k_work *work)
 					if (timerMinutes < 199)
 					{
 						timerMinutes = timerMinutes + 1;
+						timerChanged = 1;
 					}
 				}
 			}
@@ -1502,11 +1568,13 @@ static void button_work_handler(struct k_work *work)
 					if (timerSeconds < 59)
 					{
 						timerSeconds = timerSeconds + 1;
+						timerChanged = 1;
 					}
 					else if (timerMinutes < 199)
 					{
 						timerSeconds = 0;
 						timerMinutes = timerMinutes + 1;
+						timerChanged = 1;
 					}
 				}
 			}
@@ -1515,14 +1583,17 @@ static void button_work_handler(struct k_work *work)
 				if (timerStarted == 0 || timerStarted == 2)
 				{
 					timerStarted = 3;
+					timerChanged = 1;
 				}
 				else if (timerStarted == 1 || timerStarted == 3)
 				{
 					timerStarted = 2;
+					timerChanged = 1;
 				}
 				else
 				{
 					timerStarted = 2;
+					timerChanged = 1;
 				}
 			}
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button shortpress
@@ -1547,10 +1618,12 @@ static void button_work_handler(struct k_work *work)
 						if (timerMinutes > 0)
 						{
 							timerMinutes = timerMinutes - 1;
+							timerChanged = 1;
 						}
 						else
 						{
 							timerSeconds = 0;
+							timerChanged = 1;
 						}
 					}
 					k_msleep(buttonTimeLongpressRepeat);
@@ -1570,11 +1643,13 @@ static void button_work_handler(struct k_work *work)
 						if (timerSeconds > 0)
 						{
 							timerSeconds = timerSeconds - 1;
+							timerChanged = 1;
 						}
 						else if (timerMinutes > 0)
 						{
 							timerSeconds = 59;
 							timerMinutes = timerMinutes - 1;
+							timerChanged = 1;
 						}
 					}
 					k_msleep(buttonTimeLongpressRepeat);
@@ -1590,14 +1665,17 @@ static void button_work_handler(struct k_work *work)
 				if (timerStarted == 0 || timerStarted == 2)
 				{
 					timerStarted = 3;
+					timerChanged = 1;
 				}
 				else if (timerStarted == 1 || timerStarted == 3)
 				{
 					timerStarted = 2;
+					timerChanged = 1;
 				}
 				else
 				{
 					timerStarted = 2;
+					timerChanged = 1;
 				}
 			}
 			else if (pinArray[0] == false && pinArray[1] == false && pinArray[2] == true) // mode button longpress
@@ -2029,25 +2107,17 @@ static bool bt_tx_manager()
 	{
 		oldAlarmOn = dataUpdate(0x05, alarmOn, oldAlarmOn);
 	}
-	else if (alarmChanged != 0)
+	else if (oldAlarmHour != alarmHour)
 	{
-		alarmChanged = dataUpdate(0x06, alarmHour, 61);
-		if (alarmChanged > 59)
-		{
-			alarmChanged = 1;
-		}
-		else
-		{
-			alarmChanged = dataUpdate(0x07, alarmMinute, 61);
-			if (alarmChanged > 60)
-			{
-				alarmChanged = 1;
-			}
-			else
-			{
-				alarmChanged = 0;
-			}
-		}
+		oldAlarmHour = dataUpdate(0x06, alarmHour, oldAlarmHour);
+	}
+	else if (oldAlarmMinute != alarmMinute)
+	{
+		oldAlarmMinute = dataUpdate(0x07, alarmMinute, oldAlarmMinute);
+	}
+	else if (oldTimerStarted != timerStarted)
+	{
+		oldTimerStarted = dataUpdate(0x0A, timerStarted, oldTimerStarted);
 	}
 	else if (timerChanged != 0)
 	{
@@ -2069,10 +2139,7 @@ static bool bt_tx_manager()
 			}
 		}
 	}
-	else if (oldTimerStarted != timerStarted)
-	{
-		oldTimerStarted = dataUpdate(0x0A, timerStarted, oldTimerStarted);
-	}
+
 	else if (oldLeftColor0 != leftColor[0])
 	{
 		oldLeftColor0 = dataUpdate(0x0B, leftColor[0], oldLeftColor0);
@@ -2148,6 +2215,14 @@ static bool bt_tx_manager()
 	else if (oldTimerColor2 != timerColor[2])
 	{
 		oldTimerColor2 = dataUpdate(0x19, timerColor[2], oldTimerColor2);
+	}
+	else if (oldHour != hour)
+	{
+		oldHour = dataUpdate(0x1A, hour, oldHour);
+	}
+	else if (oldMinute != minute)
+	{
+		oldMinute = dataUpdate(0x1B, minute, oldMinute);
 	}
 	else
 	{
