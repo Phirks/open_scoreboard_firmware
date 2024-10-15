@@ -745,7 +745,7 @@ static void timer4_handler(struct k_timer *dummy)
 	else
 	{
 		timerSeconds = timerSeconds - 1;
-		if (timerSeconds % 10 == 0)
+		if (timerSeconds % 1 == 0)
 		{
 			timerChanged = 1;
 		}
@@ -1164,7 +1164,7 @@ static const uint8_t android_pkg_name[] = {
 
 /* URI nrf-toolbox://main/ */
 static const uint8_t universal_link[] = {
-	'n', 'r', 'f', '-', 't', 'o', 'o', 'l', 'b', 'o', 'x', ':', '/', '/', 'm', 'a', 'i', 'n',
+	'a', 'o', 'r', 'a', ':', '/', '/', 'm', 'a', 'i', 'n',
 	'/'};
 /** .. include_endpoint_pkg_def_launchapp_rst */
 
